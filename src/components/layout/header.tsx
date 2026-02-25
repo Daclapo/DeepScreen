@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
@@ -142,6 +143,13 @@ export function Header() {
             <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
                 {/* Logo */}
                 <Link href={`/${locale}`} className="flex items-center gap-2 font-semibold text-foreground hover:text-primary transition-colors">
+                    <Image
+                        src={theme === 'dark' ? '/images/logo-dark.png' : '/images/logo-light.png'}
+                        alt="DeepScreen"
+                        width={28}
+                        height={28}
+                        className="flex-shrink-0"
+                    />
                     <span className="text-lg tracking-tight">DeepScreen</span>
                 </Link>
 

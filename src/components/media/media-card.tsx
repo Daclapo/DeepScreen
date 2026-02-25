@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import { Star, Clock } from 'lucide-react';
+import { Star, Clock, Film } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { TMDB_IMAGE_BASE, TMDB_POSTER_SIZES } from '@/lib/constants';
 
@@ -53,8 +53,8 @@ export function MediaCard({ id, title, posterPath, mediaType, year, rating, rele
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                 ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
-                        No Image
+                    <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                        <Film className="h-10 w-10 text-muted-foreground/30" />
                     </div>
                 )}
 

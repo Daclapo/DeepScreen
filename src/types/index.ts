@@ -117,6 +117,7 @@ export interface TMDBMovieDetail extends TMDBMovie {
     status: string;
     tagline: string | null;
     production_companies: TMDBProductionCompany[];
+    production_countries: { iso_3166_1: string; name: string }[];
     spoken_languages: { iso_639_1: string; name: string; english_name: string }[];
     credits: TMDBCredits;
     external_ids: { imdb_id: string | null };

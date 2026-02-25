@@ -9,13 +9,19 @@ import type { EpisodeRating } from '@/types';
 
 interface EpisodeHeatmapProps {
     episodeRatings: EpisodeRating[];
+    onSeasonChange?: (season: number | null) => void;
 }
 
-export function EpisodeHeatmap({ episodeRatings }: EpisodeHeatmapProps) {
+export function EpisodeHeatmap({ episodeRatings, onSeasonChange }: EpisodeHeatmapProps) {
     const t = useTranslations('heatmap');
     const { theme } = useTheme();
     const containerRef = useRef<HTMLDivElement>(null);
     const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
+
+    const handleSeasonChange = (season: number | null) => {
+        setSelectedSeason(season);
+        onSeasonChange?.(season);
+    };
 
     const seasons = useMemo(() => {
         const seasonSet = new Set(episodeRatings.map((e) => e.season));
@@ -81,7 +87,7 @@ export function EpisodeHeatmap({ episodeRatings }: EpisodeHeatmapProps) {
                     <Button
                         variant={selectedSeason === null ? 'default' : 'outline'}
                         size="sm"
-                        onClick={() => setSelectedSeason(null)}
+                        onClick={() => handleSeasonChange(null)}
                         className="text-xs h-7"
                     >
                         {t('allSeasons')}
@@ -91,7 +97,7 @@ export function EpisodeHeatmap({ episodeRatings }: EpisodeHeatmapProps) {
                             key={s}
                             variant={selectedSeason === s ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => setSelectedSeason(s)}
+                            onClick={() => handleSeasonChange(s)}
                             className="text-xs h-7 px-2"
                         >
                             S{s}

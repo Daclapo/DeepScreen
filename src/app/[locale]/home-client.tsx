@@ -213,7 +213,7 @@ export function HomeClient({ trending, topMovies, topSeries, translations: t }: 
                 <Section
                     title={t.trendingToday}
                     actionLabel={t.exploreAll}
-                    actionHref={`/${locale}/discover`}
+                    actionHref={`/${locale}/discover?sort=popularity.desc`}
                 >
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                         {trending

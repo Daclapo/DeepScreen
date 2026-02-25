@@ -12,6 +12,13 @@ import { MediaCard } from '@/components/media/media-card';
 import { useTheme } from '@/components/layout/theme-provider';
 import type { TMDBMovieDetail } from '@/types';
 
+// ISO country code to emoji flag
+function countryToFlag(code: string): string {
+    return code
+        .toUpperCase()
+        .replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
+}
+
 interface Props {
     movie: TMDBMovieDetail;
 }
@@ -112,7 +119,16 @@ export function MovieDetailClient({ movie }: Props) {
                     <TabsContent value="overview" className="space-y-8 mt-6">
                         {/* Synopsis */}
                         <section>
-                            <h2 className="text-lg font-semibold mb-3">{t('overview')}</h2>
+                            <h2 className="text-lg font-semibold mb-1">{t('synopsis')}</h2>
+                            {/* Country flags */}
+                            {movie.production_countries && movie.production_countries.length > 0 && (
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="text-xs text-muted-foreground">{t('origin')}:</span>
+                                    {movie.production_countries.map((c: { iso_3166_1: string; name: string }) => (
+                                        <span key={c.iso_3166_1} className="text-lg" title={c.name}>{countryToFlag(c.iso_3166_1)}</span>
+                                    ))}
+                                </div>
+                            )}
                             <p className="text-muted-foreground leading-relaxed">
                                 {movie.overview || t('noOverview')}
                             </p>

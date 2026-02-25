@@ -16,6 +16,20 @@ interface Props {
     credits: TMDBPersonCombinedCredits;
 }
 
+// Unified credit with merged roles
+interface UnifiedCredit {
+    id: number;
+    media_type: 'movie' | 'tv';
+    title: string;
+    poster_path: string | null;
+    release_date: string;
+    vote_average: number;
+    genre_ids: number[];
+    roles: string[]; // e.g. ["Actor (Walter White)", "Producer"]
+    departments: string[]; // e.g. ["Acting", "Production"]
+    popularity: number;
+}
+
 export function PersonDetailClient({ person, credits }: Props) {
     const locale = useLocale();
     const t = useTranslations('person');
@@ -26,7 +40,6 @@ export function PersonDetailClient({ person, credits }: Props) {
         ? `${TMDB_IMAGE_BASE}/${TMDB_PROFILE_SIZES.original}${person.profile_path}`
         : null;
 
-    // Calculate age
     const age = useMemo(() => {
         if (!person.birthday) return null;
         const birth = new Date(person.birthday);
@@ -37,95 +50,105 @@ export function PersonDetailClient({ person, credits }: Props) {
         return diff;
     }, [person.birthday, person.deathday]);
 
-    // Deduplicate and organize credits
-    const allCast = useMemo(() => {
-        const seen = new Set<string>();
-        return credits.cast
-            .filter(c => {
-                const key = `${c.media_type}-${c.id}`;
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            })
-            .sort((a, b) => {
-                const dateA = a.release_date || a.first_air_date || '';
-                const dateB = b.release_date || b.first_air_date || '';
-                return dateB.localeCompare(dateA);
-            });
-    }, [credits.cast]);
+    // Build unified credits map: merge cast+crew by media_type-id
+    const unifiedMap = useMemo(() => {
+        const map = new Map<string, UnifiedCredit>();
 
-    const allCrew = useMemo(() => {
-        const seen = new Set<string>();
-        return credits.crew
-            .filter(c => {
-                const key = `${c.media_type}-${c.id}-${c.job}`;
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            })
-            .sort((a, b) => {
-                const dateA = a.release_date || a.first_air_date || '';
-                const dateB = b.release_date || b.first_air_date || '';
-                return dateB.localeCompare(dateA);
-            });
-    }, [credits.crew]);
+        for (const c of credits.cast) {
+            const key = `${c.media_type}-${c.id}`;
+            const existing = map.get(key);
+            const roleLabel = c.character ? `${c.character}` : 'Actor';
+            if (existing) {
+                if (!existing.roles.includes(roleLabel)) existing.roles.push(roleLabel);
+                if (!existing.departments.includes('Acting')) existing.departments.push('Acting');
+            } else {
+                map.set(key, {
+                    id: c.id,
+                    media_type: c.media_type,
+                    title: c.title || c.name || '',
+                    poster_path: c.poster_path,
+                    release_date: c.release_date || c.first_air_date || '',
+                    vote_average: c.vote_average,
+                    genre_ids: c.genre_ids || [],
+                    roles: [roleLabel],
+                    departments: ['Acting'],
+                    popularity: c.popularity,
+                });
+            }
+        }
 
-    const directorCredits = allCrew.filter(c => c.job === 'Director');
-    const producerCredits = allCrew.filter(c => c.department === 'Production');
+        for (const c of credits.crew) {
+            const key = `${c.media_type}-${c.id}`;
+            const existing = map.get(key);
+            const roleLabel = c.job;
+            if (existing) {
+                if (!existing.roles.includes(roleLabel)) existing.roles.push(roleLabel);
+                if (!existing.departments.includes(c.department)) existing.departments.push(c.department);
+            } else {
+                map.set(key, {
+                    id: c.id,
+                    media_type: c.media_type,
+                    title: c.title || c.name || '',
+                    poster_path: c.poster_path,
+                    release_date: c.release_date || c.first_air_date || '',
+                    vote_average: c.vote_average,
+                    genre_ids: c.genre_ids || [],
+                    roles: [roleLabel],
+                    departments: [c.department],
+                    popularity: c.popularity,
+                });
+            }
+        }
+
+        return map;
+    }, [credits]);
+
+    const allUnified = useMemo(() =>
+        Array.from(unifiedMap.values()).sort((a, b) => b.release_date.localeCompare(a.release_date)),
+        [unifiedMap]
+    );
+
+    // Role counts (unique titles per department)
+    const actingCount = useMemo(() => allUnified.filter(c => c.departments.includes('Acting')).length, [allUnified]);
+    const directingCount = useMemo(() => allUnified.filter(c => c.roles.includes('Director')).length, [allUnified]);
+    const producingCount = useMemo(() => allUnified.filter(c => c.departments.includes('Production')).length, [allUnified]);
+    const totalCredits = allUnified.length;
 
     // Stats
-    const totalCredits = allCast.length + allCrew.length;
-    const allDates = [...allCast.map(c => c.release_date || c.first_air_date), ...allCrew.map(c => c.release_date || c.first_air_date)]
-        .filter(Boolean)
-        .sort() as string[];
+    const allDates = allUnified.map(c => c.release_date).filter(Boolean).sort();
     const firstYear = allDates[0]?.slice(0, 4);
     const lastYear = allDates[allDates.length - 1]?.slice(0, 4);
 
     // Genre distribution
     const genreCounts = useMemo(() => {
         const counts: Record<string, number> = {};
-        const allGenreIds = [...allCast, ...allCrew].flatMap(c => c.genre_ids || []);
         const genreMap = { ...MOVIE_GENRES, ...TV_GENRES };
-        allGenreIds.forEach(id => {
-            const name = genreMap[id]?.[locale as 'en' | 'es'] || `Genre ${id}`;
-            counts[name] = (counts[name] || 0) + 1;
+        allUnified.forEach(c => {
+            (c.genre_ids || []).forEach(id => {
+                const name = genreMap[id]?.[locale as 'en' | 'es'] || `Genre ${id}`;
+                counts[name] = (counts[name] || 0) + 1;
+            });
         });
-        return Object.entries(counts)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 8);
-    }, [allCast, allCrew, locale]);
+        return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    }, [allUnified, locale]);
 
     // Films per year
     const filmsPerYear = useMemo(() => {
         const counts: Record<string, number> = {};
-        allCast.forEach(c => {
-            const year = (c.release_date || c.first_air_date)?.slice(0, 4);
+        allUnified.filter(c => c.departments.includes('Acting')).forEach(c => {
+            const year = c.release_date?.slice(0, 4);
             if (year) counts[year] = (counts[year] || 0) + 1;
         });
         return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
-    }, [allCast]);
-
-    // Frequent collaborators (directors the person worked with 3+ times)
-    const collaborators = useMemo(() => {
-        if (person.known_for_department !== 'Acting') return [];
-        // We'd need crew data per movie — this is a simplified version using credit overlap
-        const coActors: Record<string, { name: string; count: number }> = {};
-        // Count how many times each cast member appears in same projects
-        // Simplified: use the credits themselves to find patterns
-        return Object.values(coActors).filter(c => c.count >= 3).sort((a, b) => b.count - a.count);
-    }, [person.known_for_department]);
+    }, [allUnified]);
 
     // Filtered filmography
     const filteredFilmography = useMemo(() => {
-        if (roleFilter === 'all') return [...allCast, ...directorCredits, ...producerCredits].sort((a, b) => {
-            const dA = ('release_date' in a ? a.release_date : a.first_air_date) || '';
-            const dB = ('release_date' in b ? b.release_date : b.first_air_date) || '';
-            return dB.localeCompare(dA);
-        });
-        if (roleFilter === 'acting') return allCast;
-        if (roleFilter === 'directing') return directorCredits;
-        return producerCredits;
-    }, [roleFilter, allCast, directorCredits, producerCredits]);
+        if (roleFilter === 'all') return allUnified;
+        if (roleFilter === 'acting') return allUnified.filter(c => c.departments.includes('Acting'));
+        if (roleFilter === 'directing') return allUnified.filter(c => c.roles.includes('Director'));
+        return allUnified.filter(c => c.departments.includes('Production'));
+    }, [roleFilter, allUnified]);
 
     const maxBarValue = Math.max(...filmsPerYear.map(([, c]) => c), 1);
 
@@ -179,10 +202,9 @@ export function PersonDetailClient({ person, credits }: Props) {
                         )}
                     </div>
 
-                    {/* Career stats */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <StatCard icon={<Film className="h-4 w-4" />} label={t('totalCredits')} value={String(totalCredits)} />
-                        <StatCard icon={<Star className="h-4 w-4" />} label={t('actingCredits')} value={String(allCast.length)} />
+                        <StatCard icon={<Star className="h-4 w-4" />} label={t('actingCredits')} value={String(actingCount)} />
                         {firstYear && <StatCard icon={<Calendar className="h-4 w-4" />} label={t('firstCredit')} value={firstYear} />}
                         {lastYear && <StatCard icon={<Calendar className="h-4 w-4" />} label={t('latestCredit')} value={lastYear} />}
                     </div>
@@ -199,68 +221,62 @@ export function PersonDetailClient({ person, credits }: Props) {
                 {/* Filmography */}
                 <TabsContent value="filmography" className="mt-6">
                     <div className="flex gap-2 mb-6 flex-wrap">
-                        {['all', 'acting', 'directing', 'producing'].map(f => (
+                        {(['all', 'acting', 'directing', 'producing'] as const).map(f => (
                             <Badge
                                 key={f}
                                 variant={roleFilter === f ? 'default' : 'outline'}
                                 className="cursor-pointer"
-                                onClick={() => setRoleFilter(f as typeof roleFilter)}
+                                onClick={() => setRoleFilter(f)}
                             >
                                 {f === 'all' ? t('allRoles') : f === 'acting' ? t('actingCredits') : f === 'directing' ? t('directingCredits') : t('producingCredits')}
                                 <span className="ml-1 opacity-60">
-                                    ({f === 'all' ? totalCredits : f === 'acting' ? allCast.length : f === 'directing' ? directorCredits.length : producerCredits.length})
+                                    ({f === 'all' ? totalCredits : f === 'acting' ? actingCount : f === 'directing' ? directingCount : producingCount})
                                 </span>
                             </Badge>
                         ))}
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                        {filteredFilmography.slice(0, 60).map((c, idx) => {
-                            const title = ('title' in c && c.title) || ('name' in c && c.name) || '';
-                            const date = ('release_date' in c ? c.release_date : c.first_air_date) || '';
-                            const subtitle = 'character' in c ? (c as TMDBPersonCreditCast).character : ('job' in c ? (c as TMDBPersonCreditCrew).job : '');
-                            return (
-                                <Link
-                                    key={`${c.media_type}-${c.id}-${idx}`}
-                                    href={`/${locale}/${c.media_type === 'movie' ? 'movie' : 'series'}/${c.id}`}
-                                    className="group"
-                                >
-                                    <div className="relative aspect-[2/3] rounded-lg overflow-hidden mb-2 border border-border/30 bg-muted">
-                                        {c.poster_path ? (
-                                            <Image
-                                                src={`${TMDB_IMAGE_BASE}/${TMDB_POSTER_SIZES.medium}${c.poster_path}`}
-                                                alt={title}
-                                                fill
-                                                sizes="150px"
-                                                className="object-cover group-hover:scale-105 transition-transform"
-                                            />
-                                        ) : (
-                                            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-xs">
-                                                No Image
-                                            </div>
-                                        )}
-                                        {c.vote_average > 0 && (
-                                            <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded bg-background/80 backdrop-blur-sm px-1 py-0.5 text-[10px] font-medium">
-                                                <Star className="h-2.5 w-2.5 fill-yellow-500 text-yellow-500" />
-                                                {c.vote_average.toFixed(1)}
-                                            </div>
-                                        )}
-                                        <Badge variant="secondary" className="absolute top-1.5 left-1.5 text-[9px] px-1 py-0 bg-background/80 backdrop-blur-sm">
-                                            {c.media_type === 'movie' ? 'Movie' : 'TV'}
-                                        </Badge>
-                                    </div>
-                                    <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">{title}</p>
-                                    <p className="text-[10px] text-muted-foreground truncate">{subtitle}</p>
-                                    {date && <p className="text-[10px] text-muted-foreground">{date.slice(0, 4)}</p>}
-                                </Link>
-                            );
-                        })}
+                        {filteredFilmography.slice(0, 60).map((c) => (
+                            <Link
+                                key={`${c.media_type}-${c.id}`}
+                                href={`/${locale}/${c.media_type === 'movie' ? 'movie' : 'series'}/${c.id}`}
+                                className="group"
+                            >
+                                <div className="relative aspect-[2/3] rounded-lg overflow-hidden mb-2 border border-border/30 bg-muted">
+                                    {c.poster_path ? (
+                                        <Image
+                                            src={`${TMDB_IMAGE_BASE}/${TMDB_POSTER_SIZES.medium}${c.poster_path}`}
+                                            alt={c.title}
+                                            fill
+                                            sizes="150px"
+                                            className="object-cover group-hover:scale-105 transition-transform"
+                                        />
+                                    ) : (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                                            <Film className="h-8 w-8 text-muted-foreground/40" />
+                                        </div>
+                                    )}
+                                    {c.vote_average > 0 && (
+                                        <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded bg-background/80 backdrop-blur-sm px-1 py-0.5 text-[10px] font-medium">
+                                            <Star className="h-2.5 w-2.5 fill-yellow-500 text-yellow-500" />
+                                            {c.vote_average.toFixed(1)}
+                                        </div>
+                                    )}
+                                    <Badge variant="secondary" className="absolute top-1.5 left-1.5 text-[9px] px-1 py-0 bg-background/80 backdrop-blur-sm">
+                                        {c.media_type === 'movie' ? 'Movie' : 'TV'}
+                                    </Badge>
+                                </div>
+                                <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">{c.title}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">{c.roles.join(' · ')}</p>
+                                {c.release_date && <p className="text-[10px] text-muted-foreground">{c.release_date.slice(0, 4)}</p>}
+                            </Link>
+                        ))}
                     </div>
                 </TabsContent>
 
                 {/* Career Stats */}
                 <TabsContent value="stats" className="mt-6 space-y-8">
-                    {/* Top Genres */}
                     {genreCounts.length > 0 && (
                         <section>
                             <h3 className="text-lg font-semibold mb-4">{t('topGenres')}</h3>
@@ -281,7 +297,6 @@ export function PersonDetailClient({ person, credits }: Props) {
                         </section>
                     )}
 
-                    {/* Films per Year */}
                     {filmsPerYear.length > 0 && (
                         <section>
                             <h3 className="text-lg font-semibold mb-4">{t('filmsPerYear')}</h3>

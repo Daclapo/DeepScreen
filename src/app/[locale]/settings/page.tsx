@@ -51,6 +51,7 @@ export default function SettingsPage() {
             localStorage.setItem(OMDB_KEY_STORAGE_KEY, omdbKey.trim());
             setSavedKey(omdbKey.trim());
             testKey(omdbKey.trim());
+            window.dispatchEvent(new Event('omdb-key-change'));
         }
     };
 
@@ -62,12 +63,12 @@ export default function SettingsPage() {
         if (ratingSource === 'imdb') {
             setRatingSource('tvmaze');
         }
+        window.dispatchEvent(new Event('omdb-key-change'));
     };
 
     const setRatingSource = (source: RatingSource) => {
         setRatingSourceState(source);
         localStorage.setItem(RATING_SOURCE_STORAGE_KEY, source);
-        // Dispatch event so other components can react
         window.dispatchEvent(new CustomEvent('rating-source-change', { detail: source }));
     };
 
@@ -155,6 +156,27 @@ export default function SettingsPage() {
 
                 <p className="text-sm text-muted-foreground mb-4">{t('omdbDescription')}</p>
 
+                {/* Prominent CTA — always visible when no key saved */}
+                {!savedKey && (
+                    <a
+                        href="https://www.omdbapi.com/apikey.aspx"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 rounded-lg border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 px-4 py-3 mb-4 transition-colors group"
+                    >
+                        <span className="text-2xl">🔑</span>
+                        <div className="flex-1">
+                            <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                                {t('omdbGetKey')}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                {t('omdbGetKeySubtitle')}
+                            </p>
+                        </div>
+                        <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                    </a>
+                )}
+
                 {/* Key input */}
                 <div className="flex gap-2 mb-4">
                     <Input
@@ -191,41 +213,25 @@ export default function SettingsPage() {
                         </AccordionTrigger>
                         <AccordionContent className="px-4 pb-4">
                             <ol className="space-y-3 text-sm">
-                                <li className="flex items-start gap-3">
-                                    <span className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-semibold">1</span>
-                                    <div>
-                                        <div>{t('omdbStep1')}</div>
-                                        <a
-                                            href="https://www.omdbapi.com/apikey.aspx"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1 text-primary hover:underline mt-0.5"
-                                        >
-                                            omdbapi.com/apikey.aspx
-                                            <ExternalLink className="h-3 w-3" />
-                                        </a>
-                                    </div>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-semibold">2</span>
-                                    <div>{t('omdbStep2')}</div>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-semibold">3</span>
-                                    <div>{t('omdbStep3')}</div>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-semibold">4</span>
-                                    <div>{t('omdbStep4')}</div>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-semibold">5</span>
-                                    <div>{t('omdbStep5')}</div>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-semibold">6</span>
-                                    <div>{t('omdbStep6')}</div>
-                                </li>
+                                {(['omdbStep1', 'omdbStep2', 'omdbStep3', 'omdbStep4', 'omdbStep5', 'omdbStep6'] as const).map((stepKey, i) => (
+                                    <li key={stepKey} className="flex items-start gap-3">
+                                        <span className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-semibold">{i + 1}</span>
+                                        <div>
+                                            <div>{t(stepKey)}</div>
+                                            {i === 0 && (
+                                                <a
+                                                    href="https://www.omdbapi.com/apikey.aspx"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 text-primary hover:underline mt-0.5"
+                                                >
+                                                    omdbapi.com/apikey.aspx
+                                                    <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                            )}
+                                        </div>
+                                    </li>
+                                ))}
                             </ol>
                         </AccordionContent>
                     </AccordionItem>

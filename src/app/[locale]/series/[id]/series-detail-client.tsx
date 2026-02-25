@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
@@ -9,8 +11,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TMDB_IMAGE_BASE, TMDB_POSTER_SIZES, TMDB_BACKDROP_SIZES, TMDB_PROFILE_SIZES } from '@/lib/constants';
 import { MediaCard } from '@/components/media/media-card';
 import { EpisodeHeatmap } from '@/components/heatmap/episode-heatmap';
+import { EpisodeList } from '@/components/heatmap/episode-list';
+import { SeasonTrendChart } from '@/components/heatmap/season-trend-chart';
 import { useTheme } from '@/components/layout/theme-provider';
 import type { TMDBSeriesDetail, EpisodeRating } from '@/types';
+
+// ISO country code to emoji flag
+function countryToFlag(code: string): string {
+    return code
+        .toUpperCase()
+        .replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
+}
 
 interface Props {
     series: TMDBSeriesDetail;
@@ -21,6 +32,7 @@ export function SeriesDetailClient({ series, episodeRatings }: Props) {
     const locale = useLocale();
     const t = useTranslations('media');
     const { theme } = useTheme();
+    const [heatmapSeason, setHeatmapSeason] = useState<number | null>(null);
 
     const backdropUrl = series.backdrop_path
         ? `${TMDB_IMAGE_BASE}/${TMDB_BACKDROP_SIZES.large}${series.backdrop_path}`
@@ -116,7 +128,16 @@ export function SeriesDetailClient({ series, episodeRatings }: Props) {
                     {/* Overview + Cast (merged) */}
                     <TabsContent value="overview" className="space-y-8 mt-6">
                         <section>
-                            <h2 className="text-lg font-semibold mb-3">{t('overview')}</h2>
+                            <h2 className="text-lg font-semibold mb-1">{t('synopsis')}</h2>
+                            {/* Country flags */}
+                            {series.origin_country && series.origin_country.length > 0 && (
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="text-xs text-muted-foreground">{t('origin')}:</span>
+                                    {series.origin_country.map(code => (
+                                        <span key={code} className="text-lg" title={code}>{countryToFlag(code)}</span>
+                                    ))}
+                                </div>
+                            )}
                             <p className="text-muted-foreground leading-relaxed">
                                 {series.overview || t('noOverview')}
                             </p>
@@ -183,7 +204,8 @@ export function SeriesDetailClient({ series, episodeRatings }: Props) {
 
                     {/* Episodes (Heatmap) */}
                     <TabsContent value="episodes" className="mt-6">
-                        <EpisodeHeatmap episodeRatings={episodeRatings} />
+                        <EpisodeHeatmap episodeRatings={episodeRatings} onSeasonChange={setHeatmapSeason} />
+                        <EpisodeList episodeRatings={episodeRatings} selectedSeason={heatmapSeason} />
                     </TabsContent>
 
                     {/* Stats */}
@@ -194,6 +216,7 @@ export function SeriesDetailClient({ series, episodeRatings }: Props) {
                             <StatCard label={t('seasons')} value={String(series.number_of_seasons)} />
                             <StatCard label={t('episodes')} value={String(series.number_of_episodes)} />
                         </div>
+                        <SeasonTrendChart episodeRatings={episodeRatings} />
                     </TabsContent>
 
                     {/* Recommendations */}

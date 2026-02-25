@@ -32,7 +32,10 @@
         "runtime": "Duración",
         "status": "Estado",
         "genres": "Géneros",
-        "overview": "Sinopsis",
+        "overview": "Resumen",
+        "synopsis": "Sinopsis",
+        "summary": "Resumen",
+        "origin": "Origen",
         "cast": "Reparto",
         "stats": "Estadísticas",
         "recommendations": "Recomendaciones",
@@ -75,7 +78,8 @@
         "frequentCollaborators": "Colaboradores Frecuentes",
         "workedWith": "Trabajó con {name} en {count} proyectos",
         "noBiography": "Biografía no disponible",
-        "allRoles": "Todos los Roles"
+        "allRoles": "Todos los Roles",
+        "people": "Personas"
     },
     "heatmap": {
         "title": "Heatmap de Puntuaciones por Episodio",
@@ -139,7 +143,8 @@
         "ratingSourceImdbRequiresKey": "Requiere una clave API de OMDb válida",
         "omdbTitle": "Puntuaciones IMDb (via OMDb)",
         "omdbDescription": "Añade tu clave API gratuita de OMDb para desbloquear las puntuaciones de IMDb en toda la app — heatmaps de episodios, puntuaciones de películas/series y ordenación en Descubrir.",
-        "omdbGetKey": "Obtener clave API gratuita",
+        "omdbGetKey": "Obtén tu clave API gratuita — solo 30 segundos",
+        "omdbGetKeySubtitle": "100% gratuita, sin tarjeta. Solo introduce tu email y recibirás la clave al instante.",
         "omdbKeyPlaceholder": "Introduce tu clave API de OMDb",
         "omdbSave": "Guardar Clave",
         "omdbTest": "Probar",
@@ -159,7 +164,10 @@
         "ratingSource": "Puntuaciones por",
         "switchToTvmaze": "Cambiar a TVMaze",
         "switchToImdb": "Cambiar a IMDb",
-        "configureImdb": "Activar puntuaciones IMDb"
+        "configureImdb": "Activar puntuaciones IMDb",
+        "noOmdbKeyTitle": "Clave API de OMDb requerida",
+        "noOmdbKeyMessage": "Añade tu clave API gratuita de OMDb en Ajustes para activar las puntuaciones de IMDb.",
+        "goToSettings": "Ir a Ajustes →"
     },
     "common": {
         "loading": "Cargando...",

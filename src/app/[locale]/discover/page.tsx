@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Grid3X3, List, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,15 +20,22 @@ export default function DiscoverPage() {
     const locale = useLocale();
     const t = useTranslations('discover');
     const language = locale === 'es' ? 'es-ES' : 'en-US';
+    const searchParams = useSearchParams();
 
-    const [mediaType, setMediaType] = useState<MediaType>('movie');
+    // Read initial values from URL params (from home page "Explore All" links)
+    const initialType = (searchParams.get('type') as MediaType) || 'movie';
+    const initialSort = searchParams.get('sort') || 'popularity.desc';
+
+    const [mediaType, setMediaType] = useState<MediaType>(initialType);
     const [genres, setGenres] = useState<number[]>([]);
-    const [sortBy, setSortBy] = useState('popularity.desc');
+    const [sortBy, setSortBy] = useState(initialSort);
     const [yearFrom, setYearFrom] = useState('');
     const [yearTo, setYearTo] = useState('');
     const [ratingMin, setRatingMin] = useState('');
     const [ratingMax, setRatingMax] = useState('');
-    const [minVotes, setMinVotes] = useState(String(DEFAULT_MIN_VOTES));
+    const [minVotes, setMinVotes] = useState(
+        initialSort.startsWith('vote_average') ? String(DEFAULT_MIN_VOTES) : '0'
+    );
     const [page, setPage] = useState(1);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [perPage, setPerPage] = useState(20);
@@ -47,10 +55,13 @@ export default function DiscoverPage() {
         setPage(1);
     }, [mediaType, genres, sortBy, yearFrom, yearTo, ratingMin, ratingMax, minVotes, perPage]);
 
+    // Calculate how many TMDB pages we need (TMDB returns 20 per page)
+    const tmdbPagesNeeded = Math.ceil(perPage / 20);
+    const tmdbStartPage = (page - 1) * tmdbPagesNeeded + 1;
+
     const queryParams = useMemo(() => {
         const params: Record<string, string> = {
             sort_by: sortBy,
-            page: String(page),
             'vote_count.gte': minVotes || '0',
         };
         if (genres.length > 0) {
@@ -66,19 +77,29 @@ export default function DiscoverPage() {
         if (ratingMin) params['vote_average.gte'] = ratingMin;
         if (ratingMax) params['vote_average.lte'] = ratingMax;
         return params;
-    }, [sortBy, page, genres, yearFrom, yearTo, ratingMin, ratingMax, minVotes, mediaType]);
+    }, [sortBy, genres, yearFrom, yearTo, ratingMin, ratingMax, minVotes, mediaType]);
 
+    // Fetch multiple TMDB pages if perPage > 20
     const { data, isLoading } = useQuery({
-        queryKey: ['discover', mediaType, queryParams, language],
+        queryKey: ['discover', mediaType, queryParams, language, tmdbStartPage, tmdbPagesNeeded],
         queryFn: async () => {
-            const searchParams = new URLSearchParams({ ...queryParams, language });
             const endpoint = mediaType === 'movie' ? 'discover/movie' : 'discover/tv';
-            const res = await fetch(`/api/tmdb/${endpoint}?${searchParams}`);
-            return res.json();
+            const fetches = Array.from({ length: tmdbPagesNeeded }, (_, i) => {
+                const p = tmdbStartPage + i;
+                const searchP = new URLSearchParams({ ...queryParams, language, page: String(p) });
+                return fetch(`/api/tmdb/${endpoint}?${searchP}`).then(r => r.json());
+            });
+            const results = await Promise.all(fetches);
+            // Merge results
+            return {
+                results: results.flatMap((r: { results?: unknown[] }) => r.results || []),
+                total_pages: Math.ceil((results[0]?.total_results || 0) / perPage),
+                total_results: results[0]?.total_results || 0,
+            };
         },
     });
 
-    const results = data?.results || [];
+    const results = (data?.results || []) as Record<string, unknown>[];
     const totalPages = Math.min(data?.total_pages || 0, 500);
     const totalResults = data?.total_results || 0;
 

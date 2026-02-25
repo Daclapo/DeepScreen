@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchMulti, searchMovies, searchTV, getTrending, getTopRatedMovies, getTopRatedTV, discoverMovies, discoverTV, getMovieDetails, getSeriesDetails, getSeasonDetails, getExternalIds, getUpcomingMovies, getPersonDetails, getPersonCombinedCredits } from '@/lib/api/tmdb';
+import { searchMulti, searchMovies, searchTV, searchPerson, getTrending, getTopRatedMovies, getTopRatedTV, discoverMovies, discoverTV, getMovieDetails, getSeriesDetails, getSeasonDetails, getExternalIds, getUpcomingMovies, getPersonDetails, getPersonCombinedCredits } from '@/lib/api/tmdb';
 
 export async function GET(
     request: NextRequest,
@@ -26,6 +26,11 @@ export async function GET(
             case 'search/tv': {
                 const query = searchParams.get('query') || '';
                 const data = await searchTV(query, page, language);
+                return NextResponse.json(data);
+            }
+            case 'search/person': {
+                const query = searchParams.get('query') || '';
+                const data = await searchPerson(query, page, language);
                 return NextResponse.json(data);
             }
             case 'trending': {

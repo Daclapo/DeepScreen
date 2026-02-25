@@ -54,6 +54,14 @@ export async function searchTV(
     return tmdbFetch('/search/tv', { query, page: String(page), language, include_adult: 'false' });
 }
 
+export async function searchPerson(
+    query: string,
+    page = 1,
+    language = 'en-US'
+): Promise<TMDBPaginatedResponse<TMDBPersonDetail>> {
+    return tmdbFetch('/search/person', { query, page: String(page), language, include_adult: 'false' });
+}
+
 // Trending
 
 export async function getTrending(

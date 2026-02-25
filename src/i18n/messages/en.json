@@ -33,6 +33,9 @@
         "status": "Status",
         "genres": "Genres",
         "overview": "Overview",
+        "synopsis": "Synopsis",
+        "summary": "Summary",
+        "origin": "Origin",
         "cast": "Cast",
         "stats": "Stats",
         "recommendations": "Recommendations",
@@ -75,7 +78,8 @@
         "frequentCollaborators": "Frequent Collaborators",
         "workedWith": "Worked with {name} in {count} projects",
         "noBiography": "No biography available",
-        "allRoles": "All Roles"
+        "allRoles": "All Roles",
+        "people": "People"
     },
     "heatmap": {
         "title": "Episode Ratings Heatmap",
@@ -139,7 +143,8 @@
         "ratingSourceImdbRequiresKey": "Requires a valid OMDb API key",
         "omdbTitle": "IMDb Ratings (via OMDb)",
         "omdbDescription": "Add your free OMDb API key to unlock IMDb ratings across the entire app — episode heatmaps, movie/series scores, and discover sorting.",
-        "omdbGetKey": "Get a free API key",
+        "omdbGetKey": "Get your free API key — takes 30 seconds",
+        "omdbGetKeySubtitle": "100% free, no credit card needed. Just enter your email and get the key instantly.",
         "omdbKeyPlaceholder": "Enter your OMDb API key",
         "omdbSave": "Save Key",
         "omdbTest": "Test",
@@ -159,7 +164,10 @@
         "ratingSource": "Ratings by",
         "switchToTvmaze": "Switch to TVMaze",
         "switchToImdb": "Switch to IMDb",
-        "configureImdb": "Unlock IMDb ratings"
+        "configureImdb": "Unlock IMDb ratings",
+        "noOmdbKeyTitle": "OMDb API key required",
+        "noOmdbKeyMessage": "Add your free OMDb API key in Settings to enable IMDb ratings.",
+        "goToSettings": "Go to Settings →"
     },
     "common": {
         "loading": "Loading...",
