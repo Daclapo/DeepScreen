@@ -51,12 +51,18 @@
         "similarTitles": "Similar Titles",
         "noResults": "No results found",
         "noOverview": "No overview available",
+        "watchTrailer": "Watch Trailer",
         "returningSeries": "Returning Series",
         "ended": "Ended",
         "cancelled": "Cancelled",
         "inProduction": "In Production",
         "upcoming": "Upcoming",
-        "comingSoon": "Coming Soon"
+        "comingSoon": "Coming Soon",
+        "releaseToday": "Releases Today",
+        "releaseTomorrow": "Releases Tomorrow",
+        "releaseInDays": "Releases in {days} days",
+        "showMore": "Show More",
+        "showLess": "Show Less"
     },
     "person": {
         "knownFor": "Known For",
@@ -79,7 +85,16 @@
         "workedWith": "Worked with {name} in {count} projects",
         "noBiography": "No biography available",
         "allRoles": "All Roles",
-        "people": "People"
+        "people": "People",
+        "mediaType": "Media Type",
+        "allMedia": "All Media",
+        "moviesOnly": "Movies Only",
+        "tvOnly": "TV Shows Only",
+        "sortBy": "Sort By",
+        "sortRelevance": "Relevance",
+        "sortRating": "Highest Rated",
+        "sortDate": "Release Date",
+        "sortTitle": "Title"
     },
     "heatmap": {
         "title": "Episode Ratings Heatmap",
@@ -87,7 +102,30 @@
         "bestEpisode": "Best Episode",
         "worstEpisode": "Worst Episode",
         "noRating": "No rating available",
-        "avgRating": "Average Rating"
+        "avgRating": "Average Rating",
+        "totalVotes": "Total Votes",
+        "colorScale": "Color Scale",
+        "scaleDefault": "Default",
+        "scaleClassic": "Classic",
+        "colors": "Colors",
+        "modeRelative": "Relative",
+        "modeAbsolute": "Absolute"
+    },
+    "binge": {
+        "title": "Binge Calculator",
+        "question": "Timeframe to finish this series:",
+        "days": "days",
+        "week": "1 week",
+        "twoWeeks": "2 weeks",
+        "month": "1 month",
+        "twoMonths": "2 months",
+        "custom": "Custom",
+        "yes": "Watch about {epPerDay} episodes per day.",
+        "yesOne": "Watch about 1 episode per day.",
+        "totalTime": "Total watch time: ~{hours}h {minutes}m",
+        "perDay": "~{hours}h {minutes}m per day",
+        "noData": "Not enough data to calculate.",
+        "estRuntime": "* Estimated runtime"
     },
     "discover": {
         "title": "Discover",
@@ -113,7 +151,13 @@
         "listView": "List View",
         "perPage": "Per page",
         "from": "From",
-        "to": "To"
+        "to": "To",
+        "advancedFilters": "Advanced Filters",
+        "runtimeMin": "Runtime (min)",
+        "language": "Original Language",
+        "allLanguages": "All Languages",
+        "originCountry": "Country of Origin",
+        "allCountries": "All Countries"
     },
     "upcoming": {
         "title": "Upcoming",
@@ -125,10 +169,13 @@
     "compare": {
         "title": "Compare",
         "addTitle": "Add a title to compare",
-        "searchToAdd": "Search to add...",
+        "searchToAdd": "Search to add",
+        "searchToAddLockedMovie": "Search to add (Movies only)",
+        "searchToAddLockedTv": "Search to add (Series only)",
         "vs": "vs",
-        "selectTwo": "Select two movies or two series to compare them side by side",
-        "clear": "Clear"
+        "selectTwo": "Select at least two items to compare",
+        "clear": "Clear",
+        "metric": "Metric"
     },
     "settings": {
         "title": "Settings",
@@ -137,6 +184,12 @@
         "light": "Light",
         "language": "Language",
         "ratingSource": "Episode Rating Source",
+        "heatmapPreferences": "Heatmap Preferences",
+        "heatmapPreferencesDescription": "Set default color scheme and scale mode for the episode ratings heatmap.",
+        "heatmapColorScale": "Color Scheme",
+        "heatmapScaleMode": "Scale Mode",
+        "heatmapAbsolute": "Absolute",
+        "heatmapRelative": "Relative",
         "ratingSourceDescription": "Choose which service provides episode ratings in the heatmap and throughout the app.",
         "ratingSourceTvmaze": "TVMaze",
         "ratingSourceImdb": "IMDb (via OMDb)",

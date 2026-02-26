@@ -10,11 +10,44 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { MediaCard } from '@/components/media/media-card';
 import { CompactMediaRow } from '@/components/media/compact-media-row';
 import { MediaGridSkeleton } from '@/components/media/skeletons';
-import { MOVIE_GENRES, TV_GENRES, DEFAULT_MIN_VOTES, ITEMS_PER_PAGE_OPTIONS } from '@/lib/constants';
+import { MOVIE_GENRES, TV_GENRES, DEFAULT_MIN_VOTES } from '@/lib/constants';
 import type { MediaType } from '@/types';
+
+const ITEMS_PER_PAGE_OPTIONS = [20, 40, 60, 100];
+
+const LANGUAGES = [
+    { code: '', label: 'All Languages' },
+    { code: 'en', label: 'English' },
+    { code: 'es', label: 'Español' },
+    { code: 'fr', label: 'Français' },
+    { code: 'ja', label: '日本語' },
+    { code: 'ko', label: '한국어' },
+    { code: 'de', label: 'Deutsch' },
+    { code: 'it', label: 'Italiano' },
+];
+
+const COUNTRIES = [
+    { code: '', label: 'All Countries' },
+    { code: 'US', label: 'United States' },
+    { code: 'GB', label: 'United Kingdom' },
+    { code: 'ES', label: 'Spain' },
+    { code: 'FR', label: 'France' },
+    { code: 'DE', label: 'Germany' },
+    { code: 'JP', label: 'Japan' },
+    { code: 'KR', label: 'South Korea' },
+    { code: 'IT', label: 'Italy' },
+    { code: 'IN', label: 'India' },
+    { code: 'BR', label: 'Brazil' },
+    { code: 'MX', label: 'Mexico' },
+    { code: 'CA', label: 'Canada' },
+    { code: 'AU', label: 'Australia' },
+    { code: 'CN', label: 'China' },
+];
 
 export default function DiscoverPage() {
     const locale = useLocale();
@@ -33,13 +66,17 @@ export default function DiscoverPage() {
     const [yearTo, setYearTo] = useState('');
     const [ratingMin, setRatingMin] = useState('');
     const [ratingMax, setRatingMax] = useState('');
-    const [minVotes, setMinVotes] = useState(
-        initialSort.startsWith('vote_average') ? String(DEFAULT_MIN_VOTES) : '0'
-    );
+    const [minVotes, setMinVotes] = useState<string>('0');
     const [page, setPage] = useState(1);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [perPage, setPerPage] = useState(20);
-    const [showFilters, setShowFilters] = useState(true);
+    const [showFilters, setShowFilters] = useState(false);
+
+    // Advanced Filters
+    const [runtimeMin, setRuntimeMin] = useState('');
+    const [runtimeMax, setRuntimeMax] = useState('');
+    const [languageCode, setLanguageCode] = useState('');
+    const [countryCode, setCountryCode] = useState('');
 
     const genreMap = mediaType === 'movie' ? MOVIE_GENRES : TV_GENRES;
 
@@ -53,7 +90,7 @@ export default function DiscoverPage() {
     // Reset page on filter change
     useEffect(() => {
         setPage(1);
-    }, [mediaType, genres, sortBy, yearFrom, yearTo, ratingMin, ratingMax, minVotes, perPage]);
+    }, [mediaType, genres, sortBy, yearFrom, yearTo, ratingMin, ratingMax, minVotes, perPage, runtimeMin, runtimeMax, languageCode, countryCode]);
 
     // Calculate how many TMDB pages we need (TMDB returns 20 per page)
     const tmdbPagesNeeded = Math.ceil(perPage / 20);
@@ -76,8 +113,12 @@ export default function DiscoverPage() {
         }
         if (ratingMin) params['vote_average.gte'] = ratingMin;
         if (ratingMax) params['vote_average.lte'] = ratingMax;
+        if (runtimeMin) params['with_runtime.gte'] = runtimeMin;
+        if (runtimeMax) params['with_runtime.lte'] = runtimeMax;
+        if (languageCode) params.with_original_language = languageCode;
+        if (countryCode) params.with_origin_country = countryCode;
         return params;
-    }, [sortBy, genres, yearFrom, yearTo, ratingMin, ratingMax, minVotes, mediaType]);
+    }, [sortBy, genres, yearFrom, yearTo, ratingMin, ratingMax, minVotes, mediaType, runtimeMin, runtimeMax, languageCode, countryCode]);
 
     // Fetch multiple TMDB pages if perPage > 20
     const { data, isLoading } = useQuery({
@@ -114,6 +155,9 @@ export default function DiscoverPage() {
         setRatingMin('');
         setRatingMax('');
         setMinVotes(sortBy.startsWith('vote_average') ? String(DEFAULT_MIN_VOTES) : '0');
+        setRuntimeMin('');
+        setRuntimeMax('');
+        setLanguageCode('');
         setSortBy('popularity.desc');
         setPage(1);
     };
@@ -166,15 +210,16 @@ export default function DiscoverPage() {
                         {/* Sort */}
                         <div>
                             <label className="text-xs font-medium text-muted-foreground mb-2 block">{t('sortBy')}</label>
-                            <select
-                                value={sortBy}
-                                onChange={(e) => setSortBy(e.target.value)}
-                                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                            >
-                                {sortOptions.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                            </select>
+                            <Select value={sortBy} onValueChange={setSortBy}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {sortOptions.map(opt => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         {/* Min votes */}
@@ -271,6 +316,76 @@ export default function DiscoverPage() {
 
                         <Separator />
 
+                        {/* Advanced Filters */}
+                        <Accordion type="single" collapsible className="w-full">
+                            <AccordionItem value="advanced" className="border-none">
+                                <AccordionTrigger className="text-sm font-semibold py-2 hover:no-underline px-1 hover:bg-accent rounded-t">
+                                    {t('advancedFilters')}
+                                </AccordionTrigger>
+                                <AccordionContent className="space-y-5 pt-3 px-1">
+                                    {/* Runtime */}
+                                    <div>
+                                        <label className="text-xs font-medium text-muted-foreground mb-2 block">{t('runtimeMin')}</label>
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                type="number"
+                                                value={runtimeMin}
+                                                onChange={(e) => setRuntimeMin(e.target.value)}
+                                                placeholder="0"
+                                                min="0"
+                                                className="text-sm"
+                                            />
+                                            <span className="text-muted-foreground text-xs">—</span>
+                                            <Input
+                                                type="number"
+                                                value={runtimeMax}
+                                                onChange={(e) => setRuntimeMax(e.target.value)}
+                                                placeholder="400"
+                                                min="0"
+                                                className="text-sm"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Language */}
+                                    <div>
+                                        <label className="text-xs font-medium text-muted-foreground mb-2 block">{t('language')}</label>
+                                        <Select value={languageCode || 'all'} onValueChange={(v) => setLanguageCode(v === 'all' ? '' : v)}>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder={t('allLanguages')} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {LANGUAGES.map(opt => (
+                                                    <SelectItem key={opt.code || 'all'} value={opt.code || 'all'}>
+                                                        {opt.code === '' ? t('allLanguages') : opt.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* Country of Origin */}
+                                    <div>
+                                        <label className="text-xs font-medium text-muted-foreground mb-2 block">{t('originCountry')}</label>
+                                        <Select value={countryCode || 'all'} onValueChange={(v) => setCountryCode(v === 'all' ? '' : v)}>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder={t('allCountries')} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {COUNTRIES.map(opt => (
+                                                    <SelectItem key={opt.code || 'all'} value={opt.code || 'all'}>
+                                                        {opt.code === '' ? t('allCountries') : opt.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
+
+                        <Separator />
+
                         {/* Per page */}
                         <div>
                             <label className="text-xs font-medium text-muted-foreground mb-2 block">{t('perPage')}</label>
@@ -311,7 +426,7 @@ export default function DiscoverPage() {
                                 const date = (item.release_date || item.first_air_date || '') as string;
                                 return (
                                     <MediaCard
-                                        key={item.id as number}
+                                        key={`${item.media_type}-${item.id}`}
                                         id={item.id as number}
                                         title={title}
                                         posterPath={item.poster_path as string | null}

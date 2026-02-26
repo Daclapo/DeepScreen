@@ -51,12 +51,18 @@
         "similarTitles": "Títulos Similares",
         "noResults": "No se encontraron resultados",
         "noOverview": "Sinopsis no disponible",
+        "watchTrailer": "Ver Tráiler",
         "returningSeries": "En emisión",
         "ended": "Finalizada",
         "cancelled": "Cancelada",
         "inProduction": "En producción",
         "upcoming": "Próximamente",
-        "comingSoon": "Por Estrenar"
+        "comingSoon": "Por Estrenar",
+        "releaseToday": "Se estrena hoy",
+        "releaseTomorrow": "Se estrena mañana",
+        "releaseInDays": "Se estrena en {days} días",
+        "showMore": "Ver Más",
+        "showLess": "Ver Menos"
     },
     "person": {
         "knownFor": "Conocido por",
@@ -79,15 +85,47 @@
         "workedWith": "Trabajó con {name} en {count} proyectos",
         "noBiography": "Biografía no disponible",
         "allRoles": "Todos los Roles",
-        "people": "Personas"
+        "people": "Personas",
+        "mediaType": "Tipo de Contenido",
+        "allMedia": "Ambos",
+        "moviesOnly": "Películas",
+        "tvOnly": "Series",
+        "sortBy": "Ordenar por",
+        "sortRelevance": "Relevancia",
+        "sortRating": "Puntuación",
+        "sortDate": "Fecha de estreno",
+        "sortTitle": "Título"
     },
     "heatmap": {
-        "title": "Heatmap de Puntuaciones por Episodio",
-        "allSeasons": "Todas las Temporadas",
+        "title": "Mapa de Calor de Episodios",
+        "allSeasons": "Todas",
         "bestEpisode": "Mejor Episodio",
         "worstEpisode": "Peor Episodio",
-        "noRating": "Sin puntuación",
-        "avgRating": "Puntuación Media"
+        "noRating": "Sin nota",
+        "avgRating": "Puntuación Media",
+        "totalVotes": "Votos Totales",
+        "colorScale": "Escala de Color",
+        "colors": "Colores:",
+        "scaleDefault": "Por defecto",
+        "scaleClassic": "Clásica",
+        "modeRelative": "Relativa",
+        "modeAbsolute": "Absoluta"
+    },
+    "binge": {
+        "title": "Calculadora de Maratón",
+        "question": "Tiempo para terminar la serie:",
+        "days": "días",
+        "week": "1 semana",
+        "twoWeeks": "2 semanas",
+        "month": "1 mes",
+        "twoMonths": "2 meses",
+        "custom": "Personalizado",
+        "yes": "Debes ver unos {epPerDay} episodios al día.",
+        "yesOne": "Debes ver 1 episodio al día.",
+        "totalTime": "Tiempo total: ~{hours}h {minutes}m",
+        "perDay": "~{hours}h {minutes}m al día",
+        "noData": "Datos insuficientes para el cálculo.",
+        "estRuntime": "* Duración estimada"
     },
     "discover": {
         "title": "Descubrir",
@@ -113,7 +151,13 @@
         "listView": "Vista Lista",
         "perPage": "Por página",
         "from": "Desde",
-        "to": "Hasta"
+        "to": "Hasta",
+        "advancedFilters": "Filtros Avanzados",
+        "runtimeMin": "Duración (min)",
+        "language": "Idioma Original",
+        "allLanguages": "Todos los Idiomas",
+        "originCountry": "País de Origen",
+        "allCountries": "Todos los Países"
     },
     "upcoming": {
         "title": "Próximamente",
@@ -125,10 +169,13 @@
     "compare": {
         "title": "Comparar",
         "addTitle": "Añade un título para comparar",
-        "searchToAdd": "Buscar para añadir...",
+        "searchToAdd": "Buscar para añadir",
+        "searchToAddLockedMovie": "Buscar para añadir (Solo Películas)",
+        "searchToAddLockedTv": "Buscar para añadir (Solo Series)",
         "vs": "vs",
-        "selectTwo": "Selecciona dos películas o dos series para compararlas lado a lado",
-        "clear": "Limpiar"
+        "selectTwo": "Selecciona al menos dos títulos para comparar",
+        "clear": "Limpiar",
+        "metric": "Métrica"
     },
     "settings": {
         "title": "Ajustes",
@@ -137,6 +184,12 @@
         "light": "Claro",
         "language": "Idioma",
         "ratingSource": "Fuente de Puntuaciones",
+        "heatmapPreferences": "Preferencias del Heatmap",
+        "heatmapPreferencesDescription": "Configura el esquema de colores y modo de escala predeterminado para el heatmap de puntuaciones.",
+        "heatmapColorScale": "Esquema de Colores",
+        "heatmapScaleMode": "Modo de Escala",
+        "heatmapAbsolute": "Absoluto",
+        "heatmapRelative": "Relativo",
         "ratingSourceDescription": "Elige qué servicio provee las puntuaciones de episodios en el heatmap y en toda la aplicación.",
         "ratingSourceTvmaze": "TVMaze",
         "ratingSourceImdb": "IMDb (via OMDb)",

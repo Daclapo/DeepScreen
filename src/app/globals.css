@@ -69,6 +69,7 @@
 
 /* ── Dark Theme (default) ── */
 .dark {
+    color-scheme: dark;
     --background: oklch(0.13 0.015 250);
     --foreground: oklch(0.93 0.005 250);
     --card: oklch(0.17 0.015 250);

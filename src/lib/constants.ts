@@ -54,6 +54,25 @@ export const HEATMAP_COLORS = {
     },
 } as const;
 
+export const HEATMAP_COLORS_CLASSIC = {
+    dark: {
+        low: '#dc2626',    // Red
+        midLow: '#ea580c', // Orange
+        mid: '#eab308',    // Yellow
+        midHigh: '#22c55e',// Green
+        high: '#15803d',   // Dark green
+        noData: '#1e293b',
+    },
+    light: {
+        low: '#ef4444',
+        midLow: '#f97316',
+        mid: '#eab308',
+        midHigh: '#4ade80',
+        high: '#16a34a',
+        noData: '#f1f5f9',
+    },
+} as const;
+
 // Genre list (TMDB genre IDs — shared between movies and TV)
 export const MOVIE_GENRES: Record<number, { en: string; es: string }> = {
     28: { en: 'Action', es: 'Acción' },

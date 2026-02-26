@@ -142,15 +142,15 @@ export function Header() {
         <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
             <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
                 {/* Logo */}
-                <Link href={`/${locale}`} className="flex items-center gap-2 font-semibold text-foreground hover:text-primary transition-colors">
+                <Link href={`/${locale}`} className="flex items-center gap-1.5 font-semibold text-foreground hover:text-primary transition-colors">
                     <Image
                         src={theme === 'dark' ? '/images/logo-dark.png' : '/images/logo-light.png'}
                         alt="DeepScreen"
-                        width={28}
-                        height={28}
+                        width={40}
+                        height={40}
                         className="flex-shrink-0"
                     />
-                    <span className="text-lg tracking-tight">DeepScreen</span>
+                    <span className="text-lg tracking-tight leading-none">DeepScreen</span>
                 </Link>
 
                 {/* Nav links */}

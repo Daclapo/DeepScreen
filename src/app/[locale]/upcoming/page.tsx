@@ -7,11 +7,43 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-r
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { MediaCard } from '@/components/media/media-card';
 import { MediaGridSkeleton } from '@/components/media/skeletons';
 import { MOVIE_GENRES, TV_GENRES } from '@/lib/constants';
 import type { MediaType } from '@/types';
+
+const LANGUAGES = [
+    { code: '', label: 'All Languages' },
+    { code: 'en', label: 'English' },
+    { code: 'es', label: 'Español' },
+    { code: 'fr', label: 'Français' },
+    { code: 'ja', label: '日本語' },
+    { code: 'ko', label: '한국어' },
+    { code: 'de', label: 'Deutsch' },
+    { code: 'it', label: 'Italiano' },
+];
+
+const COUNTRIES = [
+    { code: '', label: 'All Countries' },
+    { code: 'US', label: 'United States' },
+    { code: 'GB', label: 'United Kingdom' },
+    { code: 'ES', label: 'Spain' },
+    { code: 'FR', label: 'France' },
+    { code: 'DE', label: 'Germany' },
+    { code: 'JP', label: 'Japan' },
+    { code: 'KR', label: 'South Korea' },
+    { code: 'IT', label: 'Italy' },
+    { code: 'IN', label: 'India' },
+    { code: 'BR', label: 'Brazil' },
+    { code: 'MX', label: 'Mexico' },
+    { code: 'CA', label: 'Canada' },
+    { code: 'AU', label: 'Australia' },
+    { code: 'CN', label: 'China' },
+];
 
 export default function UpcomingPage() {
     const locale = useLocale();
@@ -23,11 +55,17 @@ export default function UpcomingPage() {
     const [sortBy, setSortBy] = useState('popularity.desc');
     const [page, setPage] = useState(1);
 
+    // Advanced Filters
+    const [runtimeMin, setRuntimeMin] = useState('');
+    const [runtimeMax, setRuntimeMax] = useState('');
+    const [languageCode, setLanguageCode] = useState('');
+    const [countryCode, setCountryCode] = useState('');
+
     const today = new Date().toISOString().split('T')[0];
     const genreMap = tab === 'movie' ? MOVIE_GENRES : TV_GENRES;
 
     // Reset on tab or filter change
-    useEffect(() => { setPage(1); }, [tab, genres, sortBy]);
+    useEffect(() => { setPage(1); }, [tab, genres, sortBy, runtimeMin, runtimeMax, languageCode, countryCode]);
 
     const queryParams = useMemo(() => {
         const params: Record<string, string> = {
@@ -42,8 +80,12 @@ export default function UpcomingPage() {
         if (genres.length > 0) {
             params.with_genres = genres.join(',');
         }
+        if (runtimeMin) params['with_runtime.gte'] = runtimeMin;
+        if (runtimeMax) params['with_runtime.lte'] = runtimeMax;
+        if (languageCode) params.with_original_language = languageCode;
+        if (countryCode) params.with_origin_country = countryCode;
         return params;
-    }, [tab, sortBy, page, genres, today]);
+    }, [tab, sortBy, page, genres, today, runtimeMin, runtimeMax, languageCode, countryCode]);
 
     const { data, isLoading } = useQuery({
         queryKey: ['upcoming', tab, queryParams, language],
@@ -85,18 +127,26 @@ export default function UpcomingPage() {
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
                 <div className="flex-1">
                     <div className="flex items-center gap-3 flex-wrap">
-                        <select
-                            value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value)}
-                            className="rounded-md border border-border bg-background px-3 py-1.5 text-sm"
-                        >
-                            {sortOptions.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                        </select>
+                        <Select value={sortBy} onValueChange={setSortBy}>
+                            <SelectTrigger className="w-[180px] h-8 text-xs bg-background">
+                                <SelectValue placeholder="Sort by" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {sortOptions.map(opt => (
+                                    <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                        {opt.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
 
-                        {genres.length > 0 && (
-                            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setGenres([])}>
+                        {(genres.length > 0 || runtimeMin || runtimeMax || languageCode) && (
+                            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => {
+                                setGenres([]);
+                                setRuntimeMin('');
+                                setRuntimeMax('');
+                                setLanguageCode('');
+                            }}>
                                 {tD('clearFilters')}
                             </Button>
                         )}
@@ -120,6 +170,75 @@ export default function UpcomingPage() {
                     </div>
                 </div>
             </div>
+
+            <Accordion type="single" collapsible className="w-full sm:w-[600px] border border-border rounded-xl bg-card shadow-sm mb-6">
+                <AccordionItem value="advanced" className="border-none">
+                    <AccordionTrigger className="text-sm font-semibold py-2 hover:no-underline px-4 hover:bg-accent/50 rounded-t transition-colors">
+                        {tD('advancedFilters')}
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 pb-4 px-4 border-t border-border/50">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            {/* Runtime */}
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground mb-2 block">{tD('runtimeMin')}</label>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="number"
+                                        value={runtimeMin}
+                                        onChange={(e) => setRuntimeMin(e.target.value)}
+                                        placeholder="0"
+                                        min="0"
+                                        className="text-sm h-8"
+                                    />
+                                    <span className="text-muted-foreground text-xs">—</span>
+                                    <Input
+                                        type="number"
+                                        value={runtimeMax}
+                                        onChange={(e) => setRuntimeMax(e.target.value)}
+                                        placeholder="400"
+                                        min="0"
+                                        className="text-sm h-8"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Language */}
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground mb-2 block">{tD('language')}</label>
+                                <Select value={languageCode || 'all'} onValueChange={(v) => setLanguageCode(v === 'all' ? '' : v)}>
+                                    <SelectTrigger className="w-full h-8 text-xs bg-background">
+                                        <SelectValue placeholder={tD('allLanguages')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {LANGUAGES.map(opt => (
+                                            <SelectItem key={opt.code || 'all'} value={opt.code || 'all'} className="text-xs">
+                                                {opt.code === '' ? tD('allLanguages') : opt.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Country of Origin */}
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground mb-2 block">{tD('originCountry')}</label>
+                                <Select value={countryCode || 'all'} onValueChange={(v) => setCountryCode(v === 'all' ? '' : v)}>
+                                    <SelectTrigger className="w-full h-8 text-xs bg-background">
+                                        <SelectValue placeholder={tD('allCountries')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {COUNTRIES.map(opt => (
+                                            <SelectItem key={opt.code || 'all'} value={opt.code || 'all'} className="text-xs">
+                                                {opt.code === '' ? tD('allCountries') : opt.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Accordion>
 
             {/* Results */}
             {isLoading ? (

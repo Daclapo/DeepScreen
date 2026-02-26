@@ -7,6 +7,7 @@ import { useState, useMemo } from 'react';
 import { Calendar, MapPin, Star, Film, Tv, Award, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TMDB_IMAGE_BASE, TMDB_PROFILE_SIZES, TMDB_POSTER_SIZES, MOVIE_GENRES, TV_GENRES } from '@/lib/constants';
 import { useTheme } from '@/components/layout/theme-provider';
 import type { TMDBPersonDetail, TMDBPersonCombinedCredits, TMDBPersonCreditCast, TMDBPersonCreditCrew } from '@/types';
@@ -35,6 +36,8 @@ export function PersonDetailClient({ person, credits }: Props) {
     const t = useTranslations('person');
     const { theme } = useTheme();
     const [roleFilter, setRoleFilter] = useState<'all' | 'acting' | 'directing' | 'producing'>('all');
+    const [mediaFilter, setMediaFilter] = useState<'all' | 'movie' | 'tv'>('all');
+    const [sortBy, setSortBy] = useState<'relevance' | 'rating' | 'date' | 'title'>('relevance');
 
     const profileUrl = person.profile_path
         ? `${TMDB_IMAGE_BASE}/${TMDB_PROFILE_SIZES.original}${person.profile_path}`
@@ -144,11 +147,24 @@ export function PersonDetailClient({ person, credits }: Props) {
 
     // Filtered filmography
     const filteredFilmography = useMemo(() => {
-        if (roleFilter === 'all') return allUnified;
-        if (roleFilter === 'acting') return allUnified.filter(c => c.departments.includes('Acting'));
-        if (roleFilter === 'directing') return allUnified.filter(c => c.roles.includes('Director'));
-        return allUnified.filter(c => c.departments.includes('Production'));
-    }, [roleFilter, allUnified]);
+        let result = allUnified;
+
+        if (roleFilter === 'acting') result = result.filter(c => c.departments.includes('Acting'));
+        else if (roleFilter === 'directing') result = result.filter(c => c.roles.includes('Director'));
+        else if (roleFilter === 'producing') result = result.filter(c => c.departments.includes('Production'));
+
+        if (mediaFilter !== 'all') {
+            result = result.filter(c => c.media_type === mediaFilter);
+        }
+
+        return result.sort((a, b) => {
+            if (sortBy === 'relevance') return b.popularity - a.popularity;
+            if (sortBy === 'rating') return b.vote_average - a.vote_average;
+            if (sortBy === 'title') return a.title.localeCompare(b.title);
+            // Default to date
+            return b.release_date.localeCompare(a.release_date);
+        });
+    }, [roleFilter, mediaFilter, sortBy, allUnified]);
 
     const maxBarValue = Math.max(...filmsPerYear.map(([, c]) => c), 1);
 
@@ -220,20 +236,46 @@ export function PersonDetailClient({ person, credits }: Props) {
 
                 {/* Filmography */}
                 <TabsContent value="filmography" className="mt-6">
-                    <div className="flex gap-2 mb-6 flex-wrap">
-                        {(['all', 'acting', 'directing', 'producing'] as const).map(f => (
-                            <Badge
-                                key={f}
-                                variant={roleFilter === f ? 'default' : 'outline'}
-                                className="cursor-pointer"
-                                onClick={() => setRoleFilter(f)}
-                            >
-                                {f === 'all' ? t('allRoles') : f === 'acting' ? t('actingCredits') : f === 'directing' ? t('directingCredits') : t('producingCredits')}
-                                <span className="ml-1 opacity-60">
-                                    ({f === 'all' ? totalCredits : f === 'acting' ? actingCount : f === 'directing' ? directingCount : producingCount})
-                                </span>
-                            </Badge>
-                        ))}
+                    <div className="flex flex-col md:flex-row justify-between gap-4 mb-6 bg-muted/30 p-4 rounded-xl border border-border/50">
+                        <div className="flex gap-2 flex-wrap items-center">
+                            {(['all', 'acting', 'directing', 'producing'] as const).map(f => (
+                                <Badge
+                                    key={f}
+                                    variant={roleFilter === f ? 'default' : 'outline'}
+                                    className="cursor-pointer"
+                                    onClick={() => setRoleFilter(f)}
+                                >
+                                    {f === 'all' ? t('allRoles') : f === 'acting' ? t('actingCredits') : f === 'directing' ? t('directingCredits') : t('producingCredits')}
+                                    <span className="ml-1 opacity-60">
+                                        ({f === 'all' ? totalCredits : f === 'acting' ? actingCount : f === 'directing' ? directingCount : producingCount})
+                                    </span>
+                                </Badge>
+                            ))}
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Select value={mediaFilter} onValueChange={(v) => setMediaFilter(v as any)}>
+                                <SelectTrigger className="w-[140px] h-8 text-xs bg-background">
+                                    <SelectValue placeholder={t('mediaType')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all" className="text-xs">{t('allMedia')}</SelectItem>
+                                    <SelectItem value="movie" className="text-xs">{t('moviesOnly')}</SelectItem>
+                                    <SelectItem value="tv" className="text-xs">{t('tvOnly')}</SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+                                <SelectTrigger className="w-[140px] h-8 text-xs bg-background">
+                                    <SelectValue placeholder={t('sortBy')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="relevance" className="text-xs">{t('sortRelevance')}</SelectItem>
+                                    <SelectItem value="date" className="text-xs">{t('sortDate')}</SelectItem>
+                                    <SelectItem value="rating" className="text-xs">{t('sortRating')}</SelectItem>
+                                    <SelectItem value="title" className="text-xs">{t('sortTitle')}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">

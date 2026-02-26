@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import { Star, Clock, Film } from 'lucide-react';
+import { Star, Clock, Film, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { TMDB_IMAGE_BASE, TMDB_POSTER_SIZES } from '@/lib/constants';
 
@@ -27,6 +27,16 @@ function isUpcoming(releaseDate?: string): boolean {
     return release > today;
 }
 
+function getDaysUntil(releaseDate: string): number | null {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const release = new Date(releaseDate);
+    release.setHours(0, 0, 0, 0);
+    const diff = release.getTime() - today.getTime();
+    if (diff < 0) return null;
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
 export function MediaCard({ id, title, posterPath, mediaType, year, rating, releaseDate, showMediaType = true, className = '' }: MediaCardProps) {
     const locale = useLocale();
     const t = useTranslations('media');
@@ -36,6 +46,7 @@ export function MediaCard({ id, title, posterPath, mediaType, year, rating, rele
         : null;
 
     const upcoming = isUpcoming(releaseDate);
+    const daysUntil = releaseDate ? getDaysUntil(releaseDate) : null;
 
     return (
         <Link
@@ -58,18 +69,13 @@ export function MediaCard({ id, title, posterPath, mediaType, year, rating, rele
                     </div>
                 )}
 
-                {/* Rating or Upcoming badge */}
-                {upcoming ? (
-                    <div className="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-amber-500/90 backdrop-blur-sm px-1.5 py-0.5 text-xs font-medium text-black">
-                        <Clock className="h-3 w-3" />
-                        <span>{t('upcoming')}</span>
-                    </div>
-                ) : rating !== undefined && rating > 0 ? (
+                {/* Rating badge */}
+                {rating !== undefined && rating > 0 && !upcoming && (
                     <div className="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-background/80 backdrop-blur-sm px-1.5 py-0.5 text-xs font-medium">
                         <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
                         <span>{rating.toFixed(1)}</span>
                     </div>
-                ) : null}
+                )}
 
                 {/* Media type badge */}
                 {showMediaType && (
@@ -87,9 +93,25 @@ export function MediaCard({ id, title, posterPath, mediaType, year, rating, rele
                 <h3 className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-primary transition-colors">
                     {title}
                 </h3>
-                {year && (
-                    <span className="text-xs text-muted-foreground">{year}</span>
-                )}
+                <div className="flex items-center gap-2">
+                    {year && (
+                        <span className="text-xs text-muted-foreground">{year}</span>
+                    )}
+                    {upcoming && daysUntil !== null && (
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                            {daysUntil === 0 ? (
+                                <>
+                                    <Calendar className="h-3 w-3" />
+                                    <span>Today</span>
+                                </>
+                            ) : daysUntil === 1 ? (
+                                'Tomorrow'
+                            ) : (
+                                `in ${daysUntil} days`
+                            )}
+                        </span>
+                    )}
+                </div>
             </div>
         </Link>
     );

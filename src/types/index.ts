@@ -109,6 +109,16 @@ export interface TMDBEpisode {
     runtime: number | null;
 }
 
+export interface TMDBVideo {
+    id: string;
+    key: string;
+    name: string;
+    site: string;
+    size: number;
+    type: string;
+    official: boolean;
+}
+
 export interface TMDBMovieDetail extends TMDBMovie {
     genres: TMDBGenre[];
     runtime: number | null;
@@ -123,6 +133,7 @@ export interface TMDBMovieDetail extends TMDBMovie {
     external_ids: { imdb_id: string | null };
     similar: TMDBPaginatedResponse<TMDBMovie>;
     recommendations: TMDBPaginatedResponse<TMDBMovie>;
+    videos?: { results: TMDBVideo[] };
 }
 
 export interface TMDBSeriesDetail extends TMDBSeries {
@@ -141,6 +152,7 @@ export interface TMDBSeriesDetail extends TMDBSeries {
     external_ids: { imdb_id: string | null; tvdb_id: number | null };
     similar: TMDBPaginatedResponse<TMDBSeries>;
     recommendations: TMDBPaginatedResponse<TMDBSeries>;
+    videos?: { results: TMDBVideo[] };
 }
 
 export interface TMDBSeasonDetail {

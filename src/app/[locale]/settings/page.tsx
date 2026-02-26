@@ -12,6 +12,9 @@ import { useTheme } from '@/components/layout/theme-provider';
 import { OMDB_KEY_STORAGE_KEY, RATING_SOURCE_STORAGE_KEY, DEFAULT_RATING_SOURCE } from '@/lib/constants';
 import type { RatingSource } from '@/lib/constants';
 
+type HeatmapColorScale = 'default' | 'classic';
+type HeatmapScaleMode = 'relative' | 'absolute';
+
 export default function SettingsPage() {
     const t = useTranslations('settings');
     const { theme, setTheme } = useTheme();
@@ -31,6 +34,10 @@ export default function SettingsPage() {
         if (storedSource && (storedSource === 'tvmaze' || storedSource === 'imdb')) {
             setRatingSourceState(storedSource);
         }
+        const storedColor = localStorage.getItem('HEATMAP_COLOR_SCALE') as HeatmapColorScale | null;
+        if (storedColor) setHeatmapColor(storedColor);
+        const storedScale = localStorage.getItem('HEATMAP_SCALE_MODE') as HeatmapScaleMode | null;
+        if (storedScale) setHeatmapScale(storedScale);
     }, []);
 
     const testKey = async (key: string) => {
@@ -74,6 +81,19 @@ export default function SettingsPage() {
 
     const canUseImdb = savedKey && keyStatus === 'valid';
 
+    // Heatmap preferences
+    const [heatmapColor, setHeatmapColor] = useState<HeatmapColorScale>('classic');
+    const [heatmapScale, setHeatmapScale] = useState<HeatmapScaleMode>('absolute');
+
+    const updateHeatmapColor = (v: HeatmapColorScale) => {
+        setHeatmapColor(v);
+        localStorage.setItem('HEATMAP_COLOR_SCALE', v);
+    };
+    const updateHeatmapScale = (v: HeatmapScaleMode) => {
+        setHeatmapScale(v);
+        localStorage.setItem('HEATMAP_SCALE_MODE', v);
+    };
+
     return (
         <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
             <h1 className="text-2xl font-bold mb-8">{t('title')}</h1>
@@ -98,6 +118,54 @@ export default function SettingsPage() {
                         <Sun className="h-4 w-4" />
                         {t('light')}
                     </Button>
+                </div>
+            </section>
+
+            <Separator className="mb-8" />
+
+            {/* Heatmap Preferences */}
+            <section className="mb-8">
+                <h2 className="text-lg font-semibold mb-2">{t('heatmapPreferences')}</h2>
+                <p className="text-sm text-muted-foreground mb-4">{t('heatmapPreferencesDescription')}</p>
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-sm font-medium mb-2 block">{t('heatmapColorScale')}</label>
+                        <div className="flex gap-3">
+                            <Button
+                                variant={heatmapColor === 'classic' ? 'default' : 'outline'}
+                                onClick={() => updateHeatmapColor('classic')}
+                                size="sm"
+                            >
+                                Classic
+                            </Button>
+                            <Button
+                                variant={heatmapColor === 'default' ? 'default' : 'outline'}
+                                onClick={() => updateHeatmapColor('default')}
+                                size="sm"
+                            >
+                                Default
+                            </Button>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium mb-2 block">{t('heatmapScaleMode')}</label>
+                        <div className="flex gap-3">
+                            <Button
+                                variant={heatmapScale === 'absolute' ? 'default' : 'outline'}
+                                onClick={() => updateHeatmapScale('absolute')}
+                                size="sm"
+                            >
+                                {t('heatmapAbsolute')}
+                            </Button>
+                            <Button
+                                variant={heatmapScale === 'relative' ? 'default' : 'outline'}
+                                onClick={() => updateHeatmapScale('relative')}
+                                size="sm"
+                            >
+                                {t('heatmapRelative')}
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </section>
 

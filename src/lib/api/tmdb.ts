@@ -94,14 +94,14 @@ export async function getMovieDetails(
     id: number,
     language = 'en-US'
 ): Promise<TMDBMovieDetail> {
-    return tmdbFetch(`/movie/${id}`, { language, append_to_response: 'credits,external_ids,similar,recommendations' });
+    return tmdbFetch(`/movie/${id}`, { language, append_to_response: 'credits,external_ids,similar,recommendations,videos' });
 }
 
 export async function getSeriesDetails(
     id: number,
     language = 'en-US'
 ): Promise<TMDBSeriesDetail> {
-    return tmdbFetch(`/tv/${id}`, { language, append_to_response: 'credits,external_ids,similar,recommendations' });
+    return tmdbFetch(`/tv/${id}`, { language, append_to_response: 'credits,external_ids,similar,recommendations,videos' });
 }
 
 export async function getSeasonDetails(

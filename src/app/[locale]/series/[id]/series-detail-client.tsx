@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 
 import Image from 'next/image';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import { Star, Calendar, Clock, Globe, Tv } from 'lucide-react';
+import { Star, Calendar, Clock, Globe, Tv, Loader2, Play, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TMDB_IMAGE_BASE, TMDB_POSTER_SIZES, TMDB_BACKDROP_SIZES, TMDB_PROFILE_SIZES } from '@/lib/constants';
@@ -13,26 +14,89 @@ import { MediaCard } from '@/components/media/media-card';
 import { EpisodeHeatmap } from '@/components/heatmap/episode-heatmap';
 import { EpisodeList } from '@/components/heatmap/episode-list';
 import { SeasonTrendChart } from '@/components/heatmap/season-trend-chart';
+import { EpisodeRatingChart } from '@/components/heatmap/episode-rating-chart';
+import { BingeCalculator } from '@/components/series/binge-calculator';
 import { useTheme } from '@/components/layout/theme-provider';
-import type { TMDBSeriesDetail, EpisodeRating } from '@/types';
-
-// ISO country code to emoji flag
-function countryToFlag(code: string): string {
-    return code
-        .toUpperCase()
-        .replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
-}
+import { useRatingSource } from '@/hooks/use-rating-source';
+import { CountryFlag } from '@/components/ui/country-flag';
+import { OMDB_KEY_STORAGE_KEY } from '@/lib/constants';
+import type { TMDBSeriesDetail, EpisodeRating, OMDbSeasonResponse } from '@/types';
 
 interface Props {
     series: TMDBSeriesDetail;
     episodeRatings: EpisodeRating[];
 }
 
-export function SeriesDetailClient({ series, episodeRatings }: Props) {
+export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Props) {
     const locale = useLocale();
     const t = useTranslations('media');
     const { theme } = useTheme();
     const [heatmapSeason, setHeatmapSeason] = useState<number | null>(null);
+    const { ratingSource, omdbKey } = useRatingSource();
+
+    // OMDb episode rating fetching
+    const [omdbRatings, setOmdbRatings] = useState<Record<string, number | null>>({});
+    const [omdbLoading, setOmdbLoading] = useState(false);
+
+    const imdbId = series.external_ids?.imdb_id;
+    const seasons = useMemo(() => {
+        const set = new Set(tvmazeRatings.map(e => e.season));
+        return Array.from(set).sort((a, b) => a - b);
+    }, [tvmazeRatings]);
+
+    useEffect(() => {
+        if (ratingSource !== 'imdb' || !omdbKey || !imdbId || seasons.length === 0) {
+            setOmdbRatings({});
+            return;
+        }
+
+        let cancelled = false;
+        setOmdbLoading(true);
+
+        const fetchOmdbRatings = async () => {
+            const allRatings: Record<string, number | null> = {};
+            for (const season of seasons) {
+                try {
+                    const res = await fetch(`/api/omdb?i=${imdbId}&season=${season}`, {
+                        headers: { 'x-omdb-key': omdbKey },
+                    });
+                    const data: OMDbSeasonResponse = await res.json();
+                    if (data.Episodes) {
+                        for (const ep of data.Episodes) {
+                            const epNum = parseInt(ep.Episode, 10);
+                            const rating = ep.imdbRating !== 'N/A' ? parseFloat(ep.imdbRating) : null;
+                            allRatings[`${season}-${epNum}`] = rating;
+                        }
+                    }
+                } catch {
+                    // If one season fails, continue with others
+                }
+            }
+            if (!cancelled) {
+                setOmdbRatings(allRatings);
+                setOmdbLoading(false);
+            }
+        };
+
+        fetchOmdbRatings();
+        return () => { cancelled = true; };
+    }, [ratingSource, omdbKey, imdbId, seasons]);
+
+    // Merge ratings: use OMDb if available, otherwise fall back to TVMaze
+    const episodeRatings = useMemo(() => {
+        if (ratingSource !== 'imdb' || Object.keys(omdbRatings).length === 0) {
+            return tvmazeRatings;
+        }
+        return tvmazeRatings.map(ep => {
+            const key = `${ep.season}-${ep.episode}`;
+            const imdbRating = omdbRatings[key];
+            return {
+                ...ep,
+                rating: imdbRating !== undefined ? imdbRating : ep.rating,
+                imdbRating: imdbRating ?? null,
+            };
+        });
+    }, [tvmazeRatings, omdbRatings, ratingSource]);
 
     const backdropUrl = series.backdrop_path
         ? `${TMDB_IMAGE_BASE}/${TMDB_BACKDROP_SIZES.large}${series.backdrop_path}`
@@ -45,10 +109,46 @@ export function SeriesDetailClient({ series, episodeRatings }: Props) {
     const firstYear = series.first_air_date?.slice(0, 4);
     const lastYear = series.last_air_date?.slice(0, 4);
     const yearRange = firstYear && lastYear && firstYear !== lastYear ? `${firstYear}–${lastYear}` : firstYear;
+    const firstAirDate = series.first_air_date ? new Date(series.first_air_date) : null;
+    const daysUntilRelease = firstAirDate
+        ? Math.ceil((firstAirDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        : null;
+    const isUpcoming = daysUntilRelease !== null && daysUntilRelease >= 0 && series.status !== 'Returning Series' && series.status !== 'Ended';
+
+    // External links
+    const imdbUrl = imdbId ? `https://www.imdb.com/title/${imdbId}/` : null;
     const genres = series.genres?.map(g => g.name) || [];
     const cast = series.credits?.cast?.slice(0, 12) || [];
-    const similar = series.recommendations?.results?.slice(0, 10) || series.similar?.results?.slice(0, 10) || [];
+
+    const allSimilar = series.recommendations?.results || series.similar?.results || [];
+    const [recsPage, setRecsPage] = useState(0);
+    const recsVisible = Math.min((recsPage + 1) * 10, 50, allSimilar.length);
+    const similar = allSimilar.slice(0, recsVisible);
+
+    // On-demand IMDb rating
+    const [imdbSeriesRating, setImdbSeriesRating] = useState<string | null>(null);
+    const [imdbSeriesLoading, setImdbSeriesLoading] = useState(false);
+    const fetchImdbSeriesRating = useCallback(async () => {
+        const key = localStorage.getItem(OMDB_KEY_STORAGE_KEY);
+        const iid = series.external_ids?.imdb_id;
+        if (!key || !iid) return;
+        setImdbSeriesLoading(true);
+        try {
+            const res = await fetch(`/api/omdb?i=${iid}`, { headers: { 'x-omdb-key': key } });
+            const data = await res.json();
+            if (data.imdbRating && data.imdbRating !== 'N/A') {
+                setImdbSeriesRating(data.imdbRating);
+            }
+        } catch { /* silently fail */ }
+        setImdbSeriesLoading(false);
+    }, [series.external_ids?.imdb_id]);
+
     const networks = series.networks || [];
+
+    // Find YouTube trailer
+    const trailer = series.videos?.results?.find(
+        v => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser')
+    );
 
     const statusMap: Record<string, string> = {
         'Returning Series': t('returningSeries'),
@@ -92,12 +192,53 @@ export function SeriesDetailClient({ series, episodeRatings }: Props) {
                                 <p className="text-sm text-muted-foreground italic mb-2">{series.tagline}</p>
                             )}
                             <div className="flex items-center gap-4 flex-wrap">
-                                {series.vote_average > 0 && (
-                                    <span className="flex items-center gap-1 text-sm">
-                                        <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                                        <span className="font-semibold">{series.vote_average.toFixed(1)}</span>
-                                        <span className="text-muted-foreground">({series.vote_count.toLocaleString()} {t('votes')})</span>
+                                {isUpcoming ? (
+                                    <span className="flex items-center gap-1.5 text-sm">
+                                        <Calendar className="h-4 w-4 text-blue-400" />
+                                        <span className="font-semibold text-blue-400">
+                                            {daysUntilRelease === 0
+                                                ? t('releaseToday')
+                                                : daysUntilRelease === 1
+                                                    ? t('releaseTomorrow')
+                                                    : t('releaseInDays', { days: daysUntilRelease })}
+                                        </span>
                                     </span>
+                                ) : (
+                                    <>
+                                        {series.vote_average > 0 && (
+                                            <span className="flex items-center gap-1 text-sm">
+                                                <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                                                <span className="font-semibold">{series.vote_average.toFixed(1)}</span>
+                                                <span className="text-muted-foreground text-xs">TMDB</span>
+                                            </span>
+                                        )}
+                                        {imdbSeriesRating && (
+                                            <span className="flex items-center gap-1 text-sm">
+                                                <span className="font-bold text-yellow-400 text-xs bg-yellow-400/10 px-1.5 py-0.5 rounded">IMDb</span>
+                                                <span className="font-semibold">{imdbSeriesRating}</span>
+                                            </span>
+                                        )}
+                                        {!imdbSeriesRating && series.external_ids?.imdb_id && (
+                                            <button
+                                                onClick={fetchImdbSeriesRating}
+                                                disabled={imdbSeriesLoading}
+                                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors opacity-70 hover:opacity-100"
+                                            >
+                                                <span className="font-medium text-yellow-400/70 bg-yellow-400/5 px-1.5 py-0.5 rounded text-[10px]">{imdbSeriesLoading ? '...' : 'IMDb'}</span>
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+                                {imdbUrl && (
+                                    <a
+                                        href={imdbUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1 text-xs hover:opacity-100 opacity-80 transition-opacity"
+                                    >
+                                        <span className="font-bold text-yellow-400 bg-yellow-400/10 px-1.5 py-0.5 rounded text-[11px]">IMDb</span>
+                                        <ExternalLink className="h-3 w-3 text-yellow-400/60" />
+                                    </a>
                                 )}
                                 <span className="text-sm text-muted-foreground">
                                     {series.number_of_seasons} {t('seasons')} · {series.number_of_episodes} {t('episodes')}
@@ -108,6 +249,19 @@ export function SeriesDetailClient({ series, episodeRatings }: Props) {
                                     {genres.map(g => (
                                         <Badge key={g} variant="outline" className="text-xs">{g}</Badge>
                                     ))}
+                                </div>
+                            )}
+                            {trailer && (
+                                <div className="mt-3">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-2"
+                                        onClick={() => window.open(`https://www.youtube.com/watch?v=${trailer.key}`, '_blank')}
+                                    >
+                                        <Play className="h-4 w-4 fill-current" />
+                                        {t('watchTrailer')}
+                                    </Button>
                                 </div>
                             )}
                         </div>
@@ -122,6 +276,7 @@ export function SeriesDetailClient({ series, episodeRatings }: Props) {
                         <TabsTrigger value="overview">{t('overview')}</TabsTrigger>
                         <TabsTrigger value="episodes">{t('episodes')}</TabsTrigger>
                         <TabsTrigger value="stats">{t('stats')}</TabsTrigger>
+                        <TabsTrigger value="binge">Binge</TabsTrigger>
                         <TabsTrigger value="recommendations">{t('recommendations')}</TabsTrigger>
                     </TabsList>
 
@@ -134,7 +289,7 @@ export function SeriesDetailClient({ series, episodeRatings }: Props) {
                                 <div className="flex items-center gap-2 mb-3">
                                     <span className="text-xs text-muted-foreground">{t('origin')}:</span>
                                     {series.origin_country.map(code => (
-                                        <span key={code} className="text-lg" title={code}>{countryToFlag(code)}</span>
+                                        <CountryFlag key={code} countryCode={code} title={code} className="shadow-sm" />
                                     ))}
                                 </div>
                             )}
@@ -145,7 +300,15 @@ export function SeriesDetailClient({ series, episodeRatings }: Props) {
 
                         <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {creator && (
-                                <InfoRow icon={<Star className="h-4 w-4" />} label={t('creator')} value={creator.name} />
+                                <InfoRow
+                                    icon={<Star className="h-4 w-4" />}
+                                    label={t('creator')}
+                                    value={
+                                        <Link href={`/${locale}/person/${creator.id}`} className="hover:text-primary transition-colors hover:underline">
+                                            {creator.name}
+                                        </Link>
+                                    }
+                                />
                             )}
                             {series.first_air_date && (
                                 <InfoRow icon={<Calendar className="h-4 w-4" />} label={t('firstAired')} value={series.first_air_date} />
@@ -204,6 +367,18 @@ export function SeriesDetailClient({ series, episodeRatings }: Props) {
 
                     {/* Episodes (Heatmap) */}
                     <TabsContent value="episodes" className="mt-6">
+                        {/* Rating source indicator */}
+                        <div className="flex items-center gap-2 mb-4">
+                            <Badge variant="secondary" className="text-xs gap-1">
+                                {ratingSource === 'imdb' ? '⭐ IMDb' : '📊 TVMaze'}
+                            </Badge>
+                            {omdbLoading && (
+                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                    Loading IMDb ratings...
+                                </span>
+                            )}
+                        </div>
                         <EpisodeHeatmap episodeRatings={episodeRatings} onSeasonChange={setHeatmapSeason} />
                         <EpisodeList episodeRatings={episodeRatings} selectedSeason={heatmapSeason} />
                     </TabsContent>
@@ -216,25 +391,55 @@ export function SeriesDetailClient({ series, episodeRatings }: Props) {
                             <StatCard label={t('seasons')} value={String(series.number_of_seasons)} />
                             <StatCard label={t('episodes')} value={String(series.number_of_episodes)} />
                         </div>
-                        <SeasonTrendChart episodeRatings={episodeRatings} />
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <SeasonTrendChart episodeRatings={episodeRatings} />
+                            <EpisodeRatingChart episodeRatings={episodeRatings} />
+                        </div>
+                    </TabsContent>
+
+                    {/* Binge Calculator */}
+                    <TabsContent value="binge" className="mt-6">
+                        <div className="max-w-lg">
+                            <BingeCalculator
+                                totalEpisodes={series.number_of_episodes}
+                                episodeRunTime={series.episode_run_time || []}
+                                seriesName={series.name}
+                            />
+                        </div>
                     </TabsContent>
 
                     {/* Recommendations */}
                     <TabsContent value="recommendations" className="mt-6">
                         {similar.length > 0 ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                {similar.map(s => (
-                                    <MediaCard
-                                        key={s.id}
-                                        id={s.id}
-                                        title={s.name}
-                                        posterPath={s.poster_path}
-                                        mediaType="tv"
-                                        year={s.first_air_date?.slice(0, 4)}
-                                        rating={s.vote_average}
-                                        releaseDate={s.first_air_date}
-                                    />
-                                ))}
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                    {similar.map(s => (
+                                        <MediaCard
+                                            key={s.id}
+                                            id={s.id}
+                                            title={s.name}
+                                            posterPath={s.poster_path}
+                                            mediaType="tv"
+                                            year={s.first_air_date?.slice(0, 4)}
+                                            rating={s.vote_average}
+                                            releaseDate={s.first_air_date}
+                                        />
+                                    ))}
+                                </div>
+                                {allSimilar.length > 10 && (
+                                    <div className="flex justify-center gap-3">
+                                        {recsVisible < Math.min(50, allSimilar.length) && (
+                                            <Button variant="outline" onClick={() => setRecsPage(p => p + 1)}>
+                                                {t('showMore')}
+                                            </Button>
+                                        )}
+                                        {recsPage > 0 && (
+                                            <Button variant="outline" onClick={() => setRecsPage(0)}>
+                                                {t('showLess')}
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <p className="text-muted-foreground text-center py-12">{t('noResults')}</p>
@@ -246,13 +451,13 @@ export function SeriesDetailClient({ series, episodeRatings }: Props) {
     );
 }
 
-function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
     return (
         <div className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border/50">
             <div className="text-muted-foreground">{icon}</div>
             <div>
                 <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="text-sm font-medium">{value}</p>
+                <div className="text-sm font-medium">{value}</div>
             </div>
         </div>
     );

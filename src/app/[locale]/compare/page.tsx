@@ -34,10 +34,13 @@ export default function ComparePage() {
     const locale = useLocale();
     const language = locale === 'es' ? 'es-ES' : 'en-US';
 
-    const [items, setItems] = useState<(CompareItem | null)[]>([null, null]);
+    const [items, setItems] = useState<(CompareItem | null)[]>([null, null, null, null]);
     const [searchSlot, setSearchSlot] = useState<number | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
+
+    // Type locking based on first added item
+    const lockedType = items.find(i => i !== null)?.mediaType || null;
 
     const handleSearchInput = useCallback((value: string) => {
         setSearchQuery(value);
@@ -98,25 +101,45 @@ export default function ComparePage() {
     };
 
     const filteredSearchResults = (searchResults?.results || []).filter(
-        (r: { media_type?: string }) => r.media_type === 'movie' || r.media_type === 'tv'
+        (r: { media_type?: string }) => {
+            if (lockedType && r.media_type !== lockedType) return false;
+            return r.media_type === 'movie' || r.media_type === 'tv';
+        }
     );
 
-    const bothFilled = items[0] !== null && items[1] !== null;
+    const activeCount = items.filter(Boolean).length;
+    const hasAtLeastTwo = activeCount >= 2;
+
+    const getHighlights = (getter: (i: CompareItem) => number, type: 'max' | 'min' = 'max') => {
+        const vals = items.map(i => i ? getter(i) : null).filter(v => v !== null) as number[];
+        if (vals.length === 0) return items.map(() => false);
+        const target = type === 'max' ? Math.max(...vals) : Math.min(...vals);
+        return items.map(i => i ? getter(i) === target && target !== 0 : false);
+    };
+
+    // Deeper comparison logic (ROI, longevity)
+    const getROI = (i: CompareItem) => {
+        const rev = parseInt(i.revenue?.replace(/\D/g, '') || '0');
+        const bg = parseInt(i.budget?.replace(/\D/g, '') || '0');
+        if (bg > 0 && rev > 0) return rev / bg;
+        return 0;
+    };
 
     // Comparison rows
-    const comparisonRows = bothFilled ? [
-        { label: tM('rating'), values: items.map(i => i ? `⭐ ${i.rating.toFixed(1)}` : '—'), highlight: (items[0]!.rating > items[1]!.rating) ? 0 : items[0]!.rating < items[1]!.rating ? 1 : -1 },
-        { label: tM('votes'), values: items.map(i => i ? i.votes.toLocaleString() : '—'), highlight: (items[0]!.votes > items[1]!.votes) ? 0 : items[0]!.votes < items[1]!.votes ? 1 : -1 },
-        { label: tM('genres'), values: items.map(i => i?.genres || '—'), highlight: -1 },
-        { label: tM('runtime'), values: items.map(i => i?.runtime || '—'), highlight: -1 },
-        { label: tM('status'), values: items.map(i => i?.status || '—'), highlight: -1 },
-        ...(items[0]?.mediaType === 'movie' && items[1]?.mediaType === 'movie' ? [
-            { label: tM('budget'), values: items.map(i => i?.budget || '—'), highlight: -1 },
-            { label: tM('revenue'), values: items.map(i => i?.revenue || '—'), highlight: -1 },
+    const comparisonRows = hasAtLeastTwo ? [
+        { label: tM('rating'), values: items.map(i => i ? `⭐ ${i.rating.toFixed(1)}` : '—'), highlights: getHighlights(i => i.rating, 'max') },
+        { label: tM('votes'), values: items.map(i => i ? i.votes.toLocaleString() : '—'), highlights: getHighlights(i => i.votes, 'max') },
+        { label: tM('genres'), values: items.map(i => i?.genres || '—'), highlights: items.map(() => false) },
+        { label: tM('runtime'), values: items.map(i => i?.runtime || '—'), highlights: items.map(() => false) },
+        { label: tM('status'), values: items.map(i => i?.status || '—'), highlights: items.map(() => false) },
+        ...(lockedType === 'movie' ? [
+            { label: tM('budget'), values: items.map(i => i?.budget || '—'), highlights: getHighlights(i => parseInt(i.budget?.replace(/\D/g, '') || '0'), 'max') },
+            { label: tM('revenue'), values: items.map(i => i?.revenue || '—'), highlights: getHighlights(i => parseInt(i.revenue?.replace(/\D/g, '') || '0'), 'max') },
+            { label: 'ROI', values: items.map(i => i && getROI(i) > 0 ? `${((getROI(i) - 1) * 100).toFixed(0)}%` : '—'), highlights: getHighlights(i => getROI(i), 'max') },
         ] : []),
-        ...(items[0]?.mediaType === 'tv' && items[1]?.mediaType === 'tv' ? [
-            { label: tM('seasons'), values: items.map(i => i?.seasons != null ? String(i.seasons) : '—'), highlight: -1 },
-            { label: tM('episodes'), values: items.map(i => i?.episodes != null ? String(i.episodes) : '—'), highlight: -1 },
+        ...(lockedType === 'tv' ? [
+            { label: tM('seasons'), values: items.map(i => i?.seasons != null ? String(i.seasons) : '—'), highlights: getHighlights(i => i.seasons || 0, 'max') },
+            { label: tM('episodes'), values: items.map(i => i?.episodes != null ? String(i.episodes) : '—'), highlights: getHighlights(i => i.episodes || 0, 'max') },
         ] : []),
     ] : [];
 
@@ -125,31 +148,18 @@ export default function ComparePage() {
             <h1 className="text-2xl font-bold mb-6">{t('title')}</h1>
 
             {/* Slots */}
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-6 items-start mb-8">
-                {/* Slot 0 */}
-                <CompareSlot
-                    item={items[0]}
-                    onSearch={() => { setSearchSlot(0); setSearchQuery(''); setDebouncedQuery(''); }}
-                    onRemove={() => removeItem(0)}
-                    tM={tM}
-                    t={t}
-                />
-
-                {/* VS */}
-                <div className="hidden md:flex items-center justify-center pt-16">
-                    <div className="flex items-center justify-center h-12 w-12 rounded-full bg-primary/10 text-primary">
-                        <ArrowLeftRight className="h-5 w-5" />
-                    </div>
-                </div>
-
-                {/* Slot 1 */}
-                <CompareSlot
-                    item={items[1]}
-                    onSearch={() => { setSearchSlot(1); setSearchQuery(''); setDebouncedQuery(''); }}
-                    onRemove={() => removeItem(1)}
-                    tM={tM}
-                    t={t}
-                />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-start mb-8">
+                {items.map((item, index) => (
+                    <CompareSlot
+                        key={index}
+                        item={item}
+                        onSearch={() => { setSearchSlot(index); setSearchQuery(''); setDebouncedQuery(''); }}
+                        onRemove={() => removeItem(index)}
+                        tM={tM}
+                        t={t}
+                        lockedType={lockedType}
+                    />
+                ))}
             </div>
 
             {/* Search overlay */}
@@ -205,25 +215,35 @@ export default function ComparePage() {
             )}
 
             {/* Comparison table */}
-            {bothFilled && (
-                <div className="rounded-xl border border-border overflow-hidden bg-card">
-                    {comparisonRows.map((row, i) => (
-                        <div key={row.label} className={`grid grid-cols-[1fr_auto_1fr] gap-4 px-4 py-3 ${i > 0 ? 'border-t border-border/50' : ''}`}>
-                            <div className={`text-sm text-right ${row.highlight === 0 ? 'font-semibold text-primary' : ''}`}>
-                                {row.values[0]}
+            {hasAtLeastTwo && (
+                <div className="rounded-xl border border-border overflow-hidden bg-card mt-8 overflow-x-auto">
+                    {/* Header Row */}
+                    <div className="grid grid-cols-[120px_repeat(4,1fr)] gap-4 px-4 py-3 bg-muted/50 border-b border-border/50 min-w-[600px]">
+                        <div className="text-xs font-semibold text-muted-foreground">{t('metric')}</div>
+                        {items.map((item, i) => (
+                            <div key={`head-${i}`} className="text-sm font-semibold truncate text-center">
+                                {item ? item.title : ''}
                             </div>
-                            <div className="text-xs text-muted-foreground text-center w-24 flex items-center justify-center">
+                        ))}
+                    </div>
+
+                    {/* Data Rows */}
+                    {comparisonRows.map((row, i) => (
+                        <div key={row.label} className={`grid grid-cols-[120px_repeat(4,1fr)] gap-4 px-4 py-3 min-w-[600px] hover:bg-muted/20 transition-colors ${i > 0 ? 'border-t border-border/50' : ''}`}>
+                            <div className="text-xs font-medium text-muted-foreground flex items-center">
                                 {row.label}
                             </div>
-                            <div className={`text-sm ${row.highlight === 1 ? 'font-semibold text-primary' : ''}`}>
-                                {row.values[1]}
-                            </div>
+                            {row.values.map((val, idx) => (
+                                <div key={idx} className={`text-sm text-center flex items-center justify-center ${row.highlights[idx] ? 'font-bold text-primary bg-primary/5 rounded py-1' : ''}`}>
+                                    {val}
+                                </div>
+                            ))}
                         </div>
                     ))}
                 </div>
             )}
 
-            {!bothFilled && (
+            {!hasAtLeastTwo && (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                     <p className="text-sm">{t('selectTwo')}</p>
                 </div>
@@ -238,21 +258,25 @@ function CompareSlot({
     onRemove,
     tM,
     t,
+    lockedType,
 }: {
     item: CompareItem | null;
     onSearch: () => void;
     onRemove: () => void;
     tM: (key: string) => string;
     t: (key: string) => string;
+    lockedType: 'movie' | 'tv' | null;
 }) {
     if (!item) {
         return (
             <button
                 onClick={onSearch}
-                className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-border rounded-xl hover:border-primary/50 hover:bg-accent/30 transition-colors cursor-pointer"
+                className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-border rounded-xl hover:border-primary/50 hover:bg-accent/30 transition-colors cursor-pointer h-full min-h-[300px]"
             >
                 <Search className="h-8 w-8 text-muted-foreground/40 mb-2" />
-                <p className="text-sm text-muted-foreground">{t('searchToAdd')}</p>
+                <p className="text-sm text-muted-foreground text-center px-2">
+                    {lockedType ? t(`searchToAddLocked${lockedType === 'movie' ? 'Movie' : 'Tv'}`) : t('searchToAdd')}
+                </p>
             </button>
         );
     }
