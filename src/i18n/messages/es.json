@@ -113,6 +113,8 @@
     },
     "binge": {
         "title": "Calculadora de Maratón",
+        "modeStandard": "Por fecha",
+        "modeReverse": "Por ritmo",
         "question": "Tiempo para terminar la serie:",
         "days": "días",
         "week": "1 semana",
@@ -127,7 +129,18 @@
         "noData": "Datos insuficientes para el cálculo.",
         "unknownRuntime": "La duración de los episodios de esta serie es desconocida. Puedes introducir la duración media (en minutos) para un cálculo más preciso.",
         "knownRuntime": "La duración media de los episodios es de {minutes} min según TMDB. Puedes ajustarla si quieres un cálculo personalizado.",
-        "minutesPerEp": "min/ep"
+        "minutesPerEp": "min/ep",
+        "reverseQuestion": "¿Cuántos episodios ves?",
+        "perDayUnit": "al día",
+        "perWeekUnit": "a la semana",
+        "episodes": "episodios",
+        "reverseResultDays": "Terminarás en unos {days} días.",
+        "reverseResultWeeks": "Unas {weeks} semanas.",
+        "reverseResultMonths": "Unos {months} meses.",
+        "reverseResultOne": "Terminarás en aproximadamente 1 día.",
+        "daysLabel": "Días",
+        "weeksLabel": "Semanas",
+        "monthsLabel": "Meses"
     },
     "discover": {
         "title": "Descubrir",

@@ -113,6 +113,8 @@
     },
     "binge": {
         "title": "Binge Calculator",
+        "modeStandard": "By deadline",
+        "modeReverse": "By pace",
         "question": "Timeframe to finish this series:",
         "days": "days",
         "week": "1 week",
@@ -127,7 +129,18 @@
         "noData": "Not enough data to calculate.",
         "unknownRuntime": "Episode duration is unknown for this series. You can enter the average length (in minutes) below for a more accurate estimate.",
         "knownRuntime": "The average episode duration is {minutes} min according to TMDB. You can adjust it if you want a custom calculation.",
-        "minutesPerEp": "min/ep"
+        "minutesPerEp": "min/ep",
+        "reverseQuestion": "How many episodes do you watch?",
+        "perDayUnit": "per day",
+        "perWeekUnit": "per week",
+        "episodes": "episodes",
+        "reverseResultDays": "You'll finish in about {days} days.",
+        "reverseResultWeeks": "About {weeks} weeks.",
+        "reverseResultMonths": "About {months} months.",
+        "reverseResultOne": "You'll finish in about 1 day.",
+        "daysLabel": "Days",
+        "weeksLabel": "Weeks",
+        "monthsLabel": "Months"
     },
     "discover": {
         "title": "Discover",
