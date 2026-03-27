@@ -399,7 +399,7 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
 
                     {/* Binge Calculator */}
                     <TabsContent value="binge" className="mt-6">
-                        <div className="max-w-lg">
+                        <div className="max-w-xl">
                             <BingeCalculator
                                 totalEpisodes={series.number_of_episodes}
                                 episodeRunTime={series.episode_run_time || []}

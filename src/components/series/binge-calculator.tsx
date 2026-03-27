@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { Timer, ChevronUp, ChevronDown } from 'lucide-react';
+import { Timer, ChevronUp, ChevronDown, Info, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,16 @@ export function BingeCalculator({ totalEpisodes, episodeRunTime, seriesName }: B
     const [preset, setPreset] = useState<'week' | 'twoWeeks' | 'month' | 'twoMonths' | 'custom'>('week');
     const [customDays, setCustomDays] = useState(7);
 
+    const hasRuntimeData = episodeRunTime.length > 0;
+    const tmdbAvgRuntime = useMemo(() => {
+        if (!hasRuntimeData) return 45;
+        return Math.round(episodeRunTime.reduce((a, b) => a + b, 0) / episodeRunTime.length);
+    }, [episodeRunTime, hasRuntimeData]);
+
+    const [customRuntime, setCustomRuntime] = useState<number>(tmdbAvgRuntime);
+
+    const avgRuntime = customRuntime;
+
     const days = useMemo(() => {
         switch (preset) {
             case 'week': return 7;
@@ -27,12 +37,6 @@ export function BingeCalculator({ totalEpisodes, episodeRunTime, seriesName }: B
             case 'custom': return customDays;
         }
     }, [preset, customDays]);
-
-    const isEstRuntime = episodeRunTime.length === 0;
-    const avgRuntime = useMemo(() => {
-        if (episodeRunTime.length === 0) return 45; // fallback
-        return episodeRunTime.reduce((a, b) => a + b, 0) / episodeRunTime.length;
-    }, [episodeRunTime]);
 
     const totalMinutes = totalEpisodes * avgRuntime;
     const totalHours = Math.floor(totalMinutes / 60);
@@ -55,6 +59,8 @@ export function BingeCalculator({ totalEpisodes, episodeRunTime, seriesName }: B
         { key: 'twoMonths' as const, label: t('twoMonths') },
         { key: 'custom' as const, label: t('custom') },
     ];
+
+    const isCustomized = customRuntime !== tmdbAvgRuntime;
 
     return (
         <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -113,19 +119,32 @@ export function BingeCalculator({ totalEpisodes, episodeRunTime, seriesName }: B
                     )}
                 </div>
 
-                {/* Answer */}
-                <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
-                    <p className="text-sm font-semibold text-foreground mb-1">
+                {/* Answer — hero style with prominent time per day */}
+                <div className="rounded-lg bg-primary/5 border border-primary/20 px-5 py-4">
+                    <p className="text-sm font-semibold text-foreground mb-3">
                         {epPerDayRounded <= 1
                             ? t('yesOne')
                             : t('yes', { epPerDay: epPerDay % 1 === 0 ? String(epPerDayRounded) : `${Math.floor(epPerDay)}-${epPerDayRounded}` })
                         }
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                        {t('totalTime', { hours: String(totalHours), minutes: String(totalMins) })}
-                        {' · '}
-                        {t('perDay', { hours: String(hoursPerDay), minutes: String(minsPerDay) })}
-                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="rounded-md bg-primary/10 px-3 py-2.5 text-center">
+                            <p className="text-2xl font-bold text-primary">
+                                {hoursPerDay > 0 ? `${hoursPerDay}h ${minsPerDay}m` : `${minsPerDay}m`}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">
+                                {t('perDay', { hours: String(hoursPerDay), minutes: String(minsPerDay) }).replace(/^~/, '')}
+                            </p>
+                        </div>
+                        <div className="rounded-md bg-primary/10 px-3 py-2.5 text-center">
+                            <p className="text-2xl font-bold text-primary">
+                                {totalHours > 0 ? `${totalHours}h ${totalMins}m` : `${totalMins}m`}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">
+                                Total
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Visual breakdown */}
@@ -135,22 +154,79 @@ export function BingeCalculator({ totalEpisodes, episodeRunTime, seriesName }: B
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Episodes</p>
                     </div>
                     <div className="text-center p-3 rounded-lg bg-muted/50">
-                        <p className="text-2xl font-bold text-primary">
-                            {Math.round(avgRuntime)}{isEstRuntime && '*'}
+                        <div className="flex items-center justify-center">
+                            <div className="flex items-center rounded-md border border-border bg-background">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-8 rounded-r-none"
+                                    onClick={() => setCustomRuntime(Math.max(1, customRuntime - 5))}
+                                >
+                                    <ChevronDown className="h-3.5 w-3.5" />
+                                </Button>
+                                <Input
+                                    type="number"
+                                    value={customRuntime}
+                                    onChange={(e) => setCustomRuntime(Math.max(1, parseInt(e.target.value) || 1))}
+                                    className="w-14 h-9 text-center border-0 text-2xl font-bold text-primary p-0 rounded-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                    min={1}
+                                />
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-8 rounded-l-none"
+                                    onClick={() => setCustomRuntime(customRuntime + 5)}
+                                >
+                                    <ChevronUp className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">
+                            {t('minutesPerEp')}
                         </p>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Min/Ep</p>
                     </div>
                     <div className="text-center p-3 rounded-lg bg-muted/50">
                         <p className="text-2xl font-bold text-primary">{days}</p>
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Days</p>
                     </div>
                 </div>
-                {isEstRuntime && (
-                    <p className="text-[10px] text-muted-foreground italic mt-2 text-right">
-                        {t('estRuntime')}
+
+                {/* Info banner — different message depending on whether runtime is known */}
+                <div className={`rounded-lg px-4 py-3 flex items-start gap-2.5 ${
+                    hasRuntimeData
+                        ? 'bg-blue-500/5 border border-blue-500/20'
+                        : 'bg-amber-500/5 border border-amber-500/20'
+                }`}>
+                    {hasRuntimeData ? (
+                        <Info className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                    ) : (
+                        <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                    )}
+                    <p className={`text-xs leading-relaxed ${
+                        hasRuntimeData ? 'text-blue-300/80' : 'text-amber-300/80'
+                    }`}>
+                        {hasRuntimeData
+                            ? t('knownRuntime', { minutes: String(tmdbAvgRuntime) })
+                            : t('unknownRuntime')
+                        }
                     </p>
+                </div>
+
+                {/* Reset button when customized and runtime is known */}
+                {isCustomized && hasRuntimeData && (
+                    <div className="flex justify-end">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-muted-foreground h-7"
+                            onClick={() => setCustomRuntime(tmdbAvgRuntime)}
+                        >
+                            ↩ Reset to {tmdbAvgRuntime} min
+                        </Button>
+                    </div>
                 )}
             </div>
         </div>
     );
 }
+

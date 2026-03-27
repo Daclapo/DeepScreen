@@ -125,7 +125,9 @@
         "totalTime": "Total watch time: ~{hours}h {minutes}m",
         "perDay": "~{hours}h {minutes}m per day",
         "noData": "Not enough data to calculate.",
-        "estRuntime": "* Estimated runtime"
+        "unknownRuntime": "Episode duration is unknown for this series. You can enter the average length (in minutes) below for a more accurate estimate.",
+        "knownRuntime": "The average episode duration is {minutes} min according to TMDB. You can adjust it if you want a custom calculation.",
+        "minutesPerEp": "min/ep"
     },
     "discover": {
         "title": "Discover",

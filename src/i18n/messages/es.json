@@ -125,7 +125,9 @@
         "totalTime": "Tiempo total: ~{hours}h {minutes}m",
         "perDay": "~{hours}h {minutes}m al día",
         "noData": "Datos insuficientes para el cálculo.",
-        "estRuntime": "* Duración estimada"
+        "unknownRuntime": "La duración de los episodios de esta serie es desconocida. Puedes introducir la duración media (en minutos) para un cálculo más preciso.",
+        "knownRuntime": "La duración media de los episodios es de {minutes} min según TMDB. Puedes ajustarla si quieres un cálculo personalizado.",
+        "minutesPerEp": "min/ep"
     },
     "discover": {
         "title": "Descubrir",
