@@ -67,9 +67,10 @@ export async function searchPerson(
 export async function getTrending(
     mediaType: 'movie' | 'tv' | 'all' = 'all',
     timeWindow: 'day' | 'week' = 'day',
-    language = 'en-US'
+    language = 'en-US',
+    page = 1
 ): Promise<TMDBPaginatedResponse<TMDBMultiResult>> {
-    return tmdbFetch(`/trending/${mediaType}/${timeWindow}`, { language });
+    return tmdbFetch(`/trending/${mediaType}/${timeWindow}`, { language, page: String(page) });
 }
 
 // Discover

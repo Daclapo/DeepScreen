@@ -4,6 +4,8 @@ import { routing } from '@/i18n/routing';
 import { Providers } from '@/components/providers';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
+import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
+import { NavigationTrail } from '@/components/layout/navigation-trail';
 
 export default async function LocaleLayout({
     children,
@@ -33,9 +35,11 @@ export default async function LocaleLayout({
                 <NextIntlClientProvider locale={locale} messages={messages}>
                     <Providers>
                         <Header />
-                        <main className="flex-1">
+                        <main className="flex-1 pb-16 md:pb-0">
+                            <NavigationTrail />
                             {children}
                         </main>
+                        <MobileBottomNav />
                         <Footer />
                     </Providers>
                 </NextIntlClientProvider>

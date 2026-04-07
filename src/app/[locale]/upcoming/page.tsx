@@ -2,13 +2,12 @@
 
 import { useLocale, useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { MediaCard } from '@/components/media/media-card';
@@ -64,9 +63,6 @@ export default function UpcomingPage() {
     const today = new Date().toISOString().split('T')[0];
     const genreMap = tab === 'movie' ? MOVIE_GENRES : TV_GENRES;
 
-    // Reset on tab or filter change
-    useEffect(() => { setPage(1); }, [tab, genres, sortBy, runtimeMin, runtimeMax, languageCode, countryCode]);
-
     const queryParams = useMemo(() => {
         const params: Record<string, string> = {
             sort_by: sortBy,
@@ -117,9 +113,9 @@ export default function UpcomingPage() {
             <p className="text-sm text-muted-foreground mb-6">{t('subtitle')}</p>
 
             <Tabs value={tab} onValueChange={(v) => setTab(v as MediaType)} className="mb-6">
-                <TabsList>
-                    <TabsTrigger value="movie">{t('upcomingMovies')}</TabsTrigger>
-                    <TabsTrigger value="tv">{t('upcomingSeries')}</TabsTrigger>
+                <TabsList className="w-full max-w-full justify-start overflow-x-auto">
+                    <TabsTrigger className="shrink-0" value="movie">{t('upcomingMovies')}</TabsTrigger>
+                    <TabsTrigger className="shrink-0" value="tv">{t('upcomingSeries')}</TabsTrigger>
                 </TabsList>
             </Tabs>
 

@@ -4,12 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import { Star, Calendar, Clock, DollarSign, Globe, Play, X, Maximize2, ExternalLink } from 'lucide-react';
+import { Star, Calendar, Clock, Globe, Play, X, Maximize2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TMDB_IMAGE_BASE, TMDB_POSTER_SIZES, TMDB_BACKDROP_SIZES, TMDB_PROFILE_SIZES } from '@/lib/constants';
-import { MOVIE_GENRES } from '@/lib/constants';
 import { MediaCard } from '@/components/media/media-card';
 import { useTheme } from '@/components/layout/theme-provider';
 import { CountryFlag } from '@/components/ui/country-flag';
@@ -36,6 +35,11 @@ export function MovieDetailClient({ movie }: Props) {
     const year = movie.release_date?.slice(0, 4);
     const genres = movie.genres?.map(g => g.name) || [];
     const cast = movie.credits?.cast?.slice(0, 12) || [];
+    const runtimeMinutes = typeof movie.runtime === 'number' ? movie.runtime : 0;
+    const hasRuntime = runtimeMinutes > 0;
+    const [runtimePinned, setRuntimePinned] = useState(false);
+    const [runtimeHovered, setRuntimeHovered] = useState(false);
+    const [runtimeEndTime, setRuntimeEndTime] = useState<string | null>(null);
 
     const allSimilar = movie.recommendations?.results || movie.similar?.results || [];
     const [recsPage, setRecsPage] = useState(0);
@@ -87,7 +91,7 @@ export function MovieDetailClient({ movie }: Props) {
     // Release countdown
     const releaseDate = movie.release_date ? new Date(movie.release_date) : null;
     const daysUntilRelease = releaseDate
-        ? Math.ceil((releaseDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        ? Math.ceil((releaseDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
         : null;
     const isUpcoming = daysUntilRelease !== null && daysUntilRelease >= 0 && movie.status !== 'Released';
 
@@ -100,6 +104,30 @@ export function MovieDetailClient({ movie }: Props) {
         if (value === 0) return '—';
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
     };
+
+    const formatRuntimeEndTime = (minutes: number) => {
+        return new Date(new Date().getTime() + minutes * 60_000).toLocaleTimeString(locale === 'es' ? 'es-ES' : 'en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    };
+
+    const formatRuntimeExpanded = (minutes: number, endTime: string | null) => {
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        const endsAt = locale === 'es' ? 'termina a las' : 'ends at';
+        return endTime
+            ? `${hours} h ${mins} min · ${endsAt} ${endTime}`
+            : `${hours} h ${mins} min`;
+    };
+
+    const runtimeText = hasRuntime
+        ? (runtimePinned || runtimeHovered ? formatRuntimeExpanded(runtimeMinutes, runtimeEndTime) : `${runtimeMinutes} min`)
+        : null;
+
+    const runtimeToggleLabel = locale === 'es'
+        ? 'Alternar detalle de duración'
+        : 'Toggle runtime details';
 
     return (
         <div>
@@ -203,11 +231,29 @@ export function MovieDetailClient({ movie }: Props) {
                                         <ExternalLink className="h-3 w-3 text-green-400/60" />
                                     </a>
                                 )}
-                                {movie.runtime && (
-                                    <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                                {hasRuntime && runtimeText && (
+                                    <button
+                                        type="button"
+                                        onMouseEnter={() => {
+                                            setRuntimeHovered(true);
+                                            setRuntimeEndTime(formatRuntimeEndTime(runtimeMinutes));
+                                        }}
+                                        onMouseLeave={() => setRuntimeHovered(false)}
+                                        onFocus={() => {
+                                            setRuntimeHovered(true);
+                                            setRuntimeEndTime(formatRuntimeEndTime(runtimeMinutes));
+                                        }}
+                                        onBlur={() => setRuntimeHovered(false)}
+                                        onClick={() => {
+                                            setRuntimePinned((prev) => !prev);
+                                            setRuntimeEndTime(formatRuntimeEndTime(runtimeMinutes));
+                                        }}
+                                        aria-label={runtimeToggleLabel}
+                                        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                                    >
                                         <Clock className="h-3.5 w-3.5" />
-                                        {movie.runtime} min
-                                    </span>
+                                        {runtimeText}
+                                    </button>
                                 )}
                             </div>
                             {genres.length > 0 && (
@@ -238,10 +284,10 @@ export function MovieDetailClient({ movie }: Props) {
             {/* Content tabs */}
             <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
                 <Tabs defaultValue="overview">
-                    <TabsList>
-                        <TabsTrigger value="overview">{t('overview')}</TabsTrigger>
-                        <TabsTrigger value="stats">{t('stats')}</TabsTrigger>
-                        <TabsTrigger value="recommendations">{t('recommendations')}</TabsTrigger>
+                    <TabsList className="w-full max-w-full justify-start overflow-x-auto">
+                        <TabsTrigger className="shrink-0" value="overview">{t('overview')}</TabsTrigger>
+                        <TabsTrigger className="shrink-0" value="stats">{t('stats')}</TabsTrigger>
+                        <TabsTrigger className="shrink-0" value="recommendations">{t('recommendations')}</TabsTrigger>
                     </TabsList>
 
                     {/* Overview + Cast (merged) */}
@@ -282,8 +328,34 @@ export function MovieDetailClient({ movie }: Props) {
                             {movie.original_language && (
                                 <InfoRow icon={<Globe className="h-4 w-4" />} label={t('originalLanguage')} value={movie.original_language.toUpperCase()} />
                             )}
-                            {movie.runtime && (
-                                <InfoRow icon={<Clock className="h-4 w-4" />} label={t('runtime')} value={`${movie.runtime} min`} />
+                            {hasRuntime && runtimeText && (
+                                <InfoRow
+                                    icon={<Clock className="h-4 w-4" />}
+                                    label={t('runtime')}
+                                    value={
+                                        <button
+                                            type="button"
+                                            onMouseEnter={() => {
+                                                setRuntimeHovered(true);
+                                                setRuntimeEndTime(formatRuntimeEndTime(runtimeMinutes));
+                                            }}
+                                            onMouseLeave={() => setRuntimeHovered(false)}
+                                            onFocus={() => {
+                                                setRuntimeHovered(true);
+                                                setRuntimeEndTime(formatRuntimeEndTime(runtimeMinutes));
+                                            }}
+                                            onBlur={() => setRuntimeHovered(false)}
+                                            onClick={() => {
+                                                setRuntimePinned((prev) => !prev);
+                                                setRuntimeEndTime(formatRuntimeEndTime(runtimeMinutes));
+                                            }}
+                                            aria-label={runtimeToggleLabel}
+                                            className="hover:text-primary transition-colors text-left"
+                                        >
+                                            {runtimeText}
+                                        </button>
+                                    }
+                                />
                             )}
                         </section>
 

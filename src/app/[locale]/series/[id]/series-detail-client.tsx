@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import { Star, Calendar, Clock, Globe, Tv, Loader2, Play, ExternalLink } from 'lucide-react';
+import { Star, Calendar, Tv, Play, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -36,7 +36,6 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
 
     // OMDb episode rating fetching
     const [omdbRatings, setOmdbRatings] = useState<Record<string, number | null>>({});
-    const [omdbLoading, setOmdbLoading] = useState(false);
 
     const imdbId = series.external_ids?.imdb_id;
     const seasons = useMemo(() => {
@@ -46,12 +45,10 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
 
     useEffect(() => {
         if (ratingSource !== 'imdb' || !omdbKey || !imdbId || seasons.length === 0) {
-            setOmdbRatings({});
             return;
         }
 
         let cancelled = false;
-        setOmdbLoading(true);
 
         const fetchOmdbRatings = async () => {
             const allRatings: Record<string, number | null> = {};
@@ -74,7 +71,6 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
             }
             if (!cancelled) {
                 setOmdbRatings(allRatings);
-                setOmdbLoading(false);
             }
         };
 
@@ -111,7 +107,7 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
     const yearRange = firstYear && lastYear && firstYear !== lastYear ? `${firstYear}–${lastYear}` : firstYear;
     const firstAirDate = series.first_air_date ? new Date(series.first_air_date) : null;
     const daysUntilRelease = firstAirDate
-        ? Math.ceil((firstAirDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        ? Math.ceil((firstAirDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
         : null;
     const isUpcoming = daysUntilRelease !== null && daysUntilRelease >= 0 && series.status !== 'Returning Series' && series.status !== 'Ended';
 
@@ -272,12 +268,12 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
             {/* Content tabs */}
             <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
                 <Tabs defaultValue="overview">
-                    <TabsList>
-                        <TabsTrigger value="overview">{t('overview')}</TabsTrigger>
-                        <TabsTrigger value="episodes">{t('episodes')}</TabsTrigger>
-                        <TabsTrigger value="stats">{t('stats')}</TabsTrigger>
-                        <TabsTrigger value="binge">Binge</TabsTrigger>
-                        <TabsTrigger value="recommendations">{t('recommendations')}</TabsTrigger>
+                    <TabsList className="w-full max-w-full justify-start overflow-x-auto">
+                        <TabsTrigger className="shrink-0" value="overview">{t('overview')}</TabsTrigger>
+                        <TabsTrigger className="shrink-0" value="episodes">{t('episodes')}</TabsTrigger>
+                        <TabsTrigger className="shrink-0" value="stats">{t('stats')}</TabsTrigger>
+                        <TabsTrigger className="shrink-0" value="binge">Binge</TabsTrigger>
+                        <TabsTrigger className="shrink-0" value="recommendations">{t('recommendations')}</TabsTrigger>
                     </TabsList>
 
                     {/* Overview + Cast (merged) */}
@@ -372,12 +368,6 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
                             <Badge variant="secondary" className="text-xs gap-1">
                                 {ratingSource === 'imdb' ? '⭐ IMDb' : '📊 TVMaze'}
                             </Badge>
-                            {omdbLoading && (
-                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                    Loading IMDb ratings...
-                                </span>
-                            )}
                         </div>
                         <EpisodeHeatmap episodeRatings={episodeRatings} onSeasonChange={setHeatmapSeason} />
                         <EpisodeList episodeRatings={episodeRatings} selectedSeason={heatmapSeason} />
@@ -392,8 +382,16 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
                             <StatCard label={t('episodes')} value={String(series.number_of_episodes)} />
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <SeasonTrendChart episodeRatings={episodeRatings} />
-                            <EpisodeRatingChart episodeRatings={episodeRatings} />
+                            <div className="overflow-x-auto">
+                                <div className="min-w-[320px]">
+                                    <SeasonTrendChart episodeRatings={episodeRatings} />
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <div className="min-w-[320px]">
+                                    <EpisodeRatingChart episodeRatings={episodeRatings} />
+                                </div>
+                            </div>
                         </div>
                     </TabsContent>
 

@@ -4,13 +4,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { useState, useMemo } from 'react';
-import { Calendar, MapPin, Star, Film, Tv, Award, Users } from 'lucide-react';
+import { Calendar, MapPin, Star, Film } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TMDB_IMAGE_BASE, TMDB_PROFILE_SIZES, TMDB_POSTER_SIZES, MOVIE_GENRES, TV_GENRES } from '@/lib/constants';
 import { useTheme } from '@/components/layout/theme-provider';
-import type { TMDBPersonDetail, TMDBPersonCombinedCredits, TMDBPersonCreditCast, TMDBPersonCreditCrew } from '@/types';
+import type { TMDBPersonDetail, TMDBPersonCombinedCredits } from '@/types';
 
 interface Props {
     person: TMDBPersonDetail;
@@ -25,6 +25,7 @@ interface UnifiedCredit {
     poster_path: string | null;
     release_date: string;
     vote_average: number;
+    vote_count: number;
     genre_ids: number[];
     roles: string[]; // e.g. ["Actor (Walter White)", "Producer"]
     departments: string[]; // e.g. ["Acting", "Production"]
@@ -37,7 +38,7 @@ export function PersonDetailClient({ person, credits }: Props) {
     const { theme } = useTheme();
     const [roleFilter, setRoleFilter] = useState<'all' | 'acting' | 'directing' | 'producing'>('all');
     const [mediaFilter, setMediaFilter] = useState<'all' | 'movie' | 'tv'>('all');
-    const [sortBy, setSortBy] = useState<'relevance' | 'rating' | 'date' | 'title'>('relevance');
+    const [sortBy, setSortBy] = useState<'relevance' | 'rating' | 'date' | 'title'>('rating');
 
     const profileUrl = person.profile_path
         ? `${TMDB_IMAGE_BASE}/${TMDB_PROFILE_SIZES.original}${person.profile_path}`
@@ -72,6 +73,7 @@ export function PersonDetailClient({ person, credits }: Props) {
                     poster_path: c.poster_path,
                     release_date: c.release_date || c.first_air_date || '',
                     vote_average: c.vote_average,
+                    vote_count: c.vote_count || 0,
                     genre_ids: c.genre_ids || [],
                     roles: [roleLabel],
                     departments: ['Acting'],
@@ -95,6 +97,7 @@ export function PersonDetailClient({ person, credits }: Props) {
                     poster_path: c.poster_path,
                     release_date: c.release_date || c.first_air_date || '',
                     vote_average: c.vote_average,
+                    vote_count: c.vote_count || 0,
                     genre_ids: c.genre_ids || [],
                     roles: [roleLabel],
                     departments: [c.department],
@@ -147,7 +150,51 @@ export function PersonDetailClient({ person, credits }: Props) {
 
     // Filtered filmography
     const filteredFilmography = useMemo(() => {
-        let result = allUnified;
+        const TALK_OR_NEWS_GENRES = new Set([10763, 10767]);
+        const titleBlacklist = new Set([
+            'the tonight show starring jimmy fallon',
+            'late night with seth meyers',
+            'the late show with stephen colbert',
+            'conan',
+            'saturday night live',
+            'the graham norton show',
+            'golden globe awards',
+            'jimmy kimmel live!',
+            'the oscars',
+            'the daily show',
+            'nova',
+            'late show with david letterman',
+            'the tonight show with jay leno',
+            "late night with conan o'brien",
+            'the mike douglas show',
+            'live with kelly and mark',
+            'the ellen degeneres show',
+            'cbs news sunday morning',
+            'today',
+            'omnibus',
+            'entertainment tonight',
+            'the kelly clarkson show',
+            'variety studio: actors on actors',
+            'quotidien',
+            'hot ones',
+            'access hollywood',
+            'the late late show with craig ferguson',
+            'real time with bill maher',
+            'premios mtv vídeos musicales',
+            'premios mtv videos musicales',
+            'the late late show with james corden',
+            'the one show',
+            'studio 42 with bob costas',
+            'el hormiguero',
+            '60 minutes',
+        ]);
+
+        let result = allUnified.filter((credit) => {
+            const title = credit.title.toLowerCase().trim();
+            const hasTalkNewsGenre = credit.media_type === 'tv' && credit.genre_ids.some((id) => TALK_OR_NEWS_GENRES.has(id));
+            const inBlacklist = titleBlacklist.has(title);
+            return !hasTalkNewsGenre && !inBlacklist;
+        });
 
         if (roleFilter === 'acting') result = result.filter(c => c.departments.includes('Acting'));
         else if (roleFilter === 'directing') result = result.filter(c => c.roles.includes('Director'));
@@ -159,7 +206,24 @@ export function PersonDetailClient({ person, credits }: Props) {
 
         return result.sort((a, b) => {
             if (sortBy === 'relevance') return b.popularity - a.popularity;
-            if (sortBy === 'rating') return b.vote_average - a.vote_average;
+            if (sortBy === 'rating') {
+                const aHasMinVotes = a.vote_count >= 10;
+                const bHasMinVotes = b.vote_count >= 10;
+
+                if (aHasMinVotes !== bHasMinVotes) {
+                    return aHasMinVotes ? -1 : 1;
+                }
+
+                if (b.vote_average !== a.vote_average) {
+                    return b.vote_average - a.vote_average;
+                }
+
+                if (b.popularity !== a.popularity) {
+                    return b.popularity - a.popularity;
+                }
+
+                return b.release_date.localeCompare(a.release_date);
+            }
             if (sortBy === 'title') return a.title.localeCompare(b.title);
             // Default to date
             return b.release_date.localeCompare(a.release_date);
@@ -253,7 +317,7 @@ export function PersonDetailClient({ person, credits }: Props) {
                             ))}
                         </div>
                         <div className="flex items-center gap-3">
-                            <Select value={mediaFilter} onValueChange={(v) => setMediaFilter(v as any)}>
+                            <Select value={mediaFilter} onValueChange={(v) => setMediaFilter(v as 'all' | 'movie' | 'tv')}>
                                 <SelectTrigger className="w-[140px] h-8 text-xs bg-background">
                                     <SelectValue placeholder={t('mediaType')} />
                                 </SelectTrigger>
@@ -264,7 +328,7 @@ export function PersonDetailClient({ person, credits }: Props) {
                                 </SelectContent>
                             </Select>
 
-                            <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+                            <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'relevance' | 'rating' | 'date' | 'title')}>
                                 <SelectTrigger className="w-[140px] h-8 text-xs bg-background">
                                     <SelectValue placeholder={t('sortBy')} />
                                 </SelectTrigger>

@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Grid3X3, List, 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,10 +16,32 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import { MediaCard } from '@/components/media/media-card';
 import { CompactMediaRow } from '@/components/media/compact-media-row';
 import { MediaGridSkeleton } from '@/components/media/skeletons';
-import { MOVIE_GENRES, TV_GENRES, DEFAULT_MIN_VOTES } from '@/lib/constants';
+import { MOVIE_GENRES, TV_GENRES } from '@/lib/constants';
 import type { MediaType } from '@/types';
 
-const ITEMS_PER_PAGE_OPTIONS = [20, 40, 60, 100];
+const ITEMS_PER_PAGE_OPTIONS = [20, 40, 60, 100, 200, 300, 500];
+
+const DEFAULT_MIN_VOTES_BY_SORT = {
+    popularity: 200,
+    rating: 800,
+    releaseDate: 100,
+    voteCount: 500,
+    title: 200,
+    revenue: 1500,
+} as const;
+
+function getSortBucket(sortBy: string): keyof typeof DEFAULT_MIN_VOTES_BY_SORT {
+    if (sortBy.startsWith('vote_average')) return 'rating';
+    if (sortBy.startsWith('vote_count')) return 'voteCount';
+    if (sortBy.startsWith('primary_release_date') || sortBy.startsWith('first_air_date')) return 'releaseDate';
+    if (sortBy.startsWith('original_title')) return 'title';
+    if (sortBy.startsWith('revenue')) return 'revenue';
+    return 'popularity';
+}
+
+function getDefaultMinVotes(sortBy: string): number {
+    return DEFAULT_MIN_VOTES_BY_SORT[getSortBucket(sortBy)];
+}
 
 const LANGUAGES = [
     { code: '', label: 'All Languages' },
@@ -58,6 +81,7 @@ export default function DiscoverPage() {
     // Read initial values from URL params (from home page "Explore All" links)
     const initialType = (searchParams.get('type') as MediaType) || 'movie';
     const initialSort = searchParams.get('sort') || 'popularity.desc';
+    const initialPage = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
 
     const [mediaType, setMediaType] = useState<MediaType>(initialType);
     const [genres, setGenres] = useState<number[]>([]);
@@ -66,8 +90,9 @@ export default function DiscoverPage() {
     const [yearTo, setYearTo] = useState('');
     const [ratingMin, setRatingMin] = useState('');
     const [ratingMax, setRatingMax] = useState('');
-    const [minVotes, setMinVotes] = useState<string>('0');
-    const [page, setPage] = useState(1);
+    const [minVotes, setMinVotes] = useState<string>(String(getDefaultMinVotes(initialSort)));
+    const [page, setPage] = useState(initialPage);
+    const [pageInput, setPageInput] = useState(String(initialPage));
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [perPage, setPerPage] = useState(20);
     const [showFilters, setShowFilters] = useState(false);
@@ -80,12 +105,14 @@ export default function DiscoverPage() {
 
     const genreMap = mediaType === 'movie' ? MOVIE_GENRES : TV_GENRES;
 
-    // Auto-set min votes when sorting by rating
+    // Auto-set min votes when sorting changes
     useEffect(() => {
-        if (sortBy.startsWith('vote_average')) {
-            setMinVotes(String(DEFAULT_MIN_VOTES));
-        }
+        setMinVotes(String(getDefaultMinVotes(sortBy)));
     }, [sortBy]);
+
+    useEffect(() => {
+        setPageInput(String(page));
+    }, [page]);
 
     // Reset page on filter change
     useEffect(() => {
@@ -93,8 +120,18 @@ export default function DiscoverPage() {
     }, [mediaType, genres, sortBy, yearFrom, yearTo, ratingMin, ratingMax, minVotes, perPage, runtimeMin, runtimeMax, languageCode, countryCode]);
 
     // Calculate how many TMDB pages we need (TMDB returns 20 per page)
+    const maxReachablePage = Math.max(1, Math.floor(10000 / perPage));
+    const safePage = Math.max(1, Math.min(page, maxReachablePage));
     const tmdbPagesNeeded = Math.ceil(perPage / 20);
-    const tmdbStartPage = (page - 1) * tmdbPagesNeeded + 1;
+    const tmdbStartPage = (safePage - 1) * tmdbPagesNeeded + 1;
+    const maxTmdbStartPage = Math.max(1, 500 - tmdbPagesNeeded + 1);
+    const safeTmdbStartPage = Math.max(1, Math.min(tmdbStartPage, maxTmdbStartPage));
+
+    useEffect(() => {
+        if (page !== safePage) {
+            setPage(safePage);
+        }
+    }, [page, safePage]);
 
     const queryParams = useMemo(() => {
         const params: Record<string, string> = {
@@ -122,27 +159,48 @@ export default function DiscoverPage() {
 
     // Fetch multiple TMDB pages if perPage > 20
     const { data, isLoading } = useQuery({
-        queryKey: ['discover', mediaType, queryParams, language, tmdbStartPage, tmdbPagesNeeded],
+        queryKey: ['discover', mediaType, queryParams, language, safeTmdbStartPage, tmdbPagesNeeded],
         queryFn: async () => {
             const endpoint = mediaType === 'movie' ? 'discover/movie' : 'discover/tv';
-            const fetches = Array.from({ length: tmdbPagesNeeded }, (_, i) => {
-                const p = tmdbStartPage + i;
-                const searchP = new URLSearchParams({ ...queryParams, language, page: String(p) });
-                return fetch(`/api/tmdb/${endpoint}?${searchP}`).then(r => r.json());
-            });
-            const results = await Promise.all(fetches);
+
+            const tmdbPages = Array.from({ length: tmdbPagesNeeded }, (_, i) => safeTmdbStartPage + i).filter((p) => p <= 500);
+            const responses: Array<{ results?: unknown[]; total_results?: number }> = [];
+            const batchSize = 5;
+
+            for (let i = 0; i < tmdbPages.length; i += batchSize) {
+                const batch = tmdbPages.slice(i, i + batchSize);
+                const batchResponses = await Promise.all(
+                    batch.map(async (p) => {
+                        const searchP = new URLSearchParams({ ...queryParams, language, page: String(p) });
+                        const response = await fetch(`/api/tmdb/${endpoint}?${searchP}`);
+                        if (!response.ok) {
+                            return { results: [], total_results: 0 };
+                        }
+                        return response.json();
+                    })
+                );
+                responses.push(...batchResponses);
+            }
+
+            const cappedTotalResults = Math.min(responses[0]?.total_results || 0, 10000);
             // Merge results
             return {
-                results: results.flatMap((r: { results?: unknown[] }) => r.results || []),
-                total_pages: Math.ceil((results[0]?.total_results || 0) / perPage),
-                total_results: results[0]?.total_results || 0,
+                results: responses.flatMap((r) => r.results || []),
+                total_pages: Math.ceil(cappedTotalResults / perPage),
+                total_results: cappedTotalResults,
             };
         },
     });
 
     const results = (data?.results || []) as Record<string, unknown>[];
-    const totalPages = Math.min(data?.total_pages || 0, 500);
+    const totalPages = data?.total_pages || 0;
     const totalResults = data?.total_results || 0;
+
+    useEffect(() => {
+        if (totalPages > 0 && page > totalPages) {
+            setPage(totalPages);
+        }
+    }, [page, totalPages]);
 
     const toggleGenre = (id: number) => {
         setGenres(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]);
@@ -154,11 +212,12 @@ export default function DiscoverPage() {
         setYearTo('');
         setRatingMin('');
         setRatingMax('');
-        setMinVotes(sortBy.startsWith('vote_average') ? String(DEFAULT_MIN_VOTES) : '0');
+        setSortBy('popularity.desc');
+        setMinVotes(String(getDefaultMinVotes('popularity.desc')));
         setRuntimeMin('');
         setRuntimeMax('');
         setLanguageCode('');
-        setSortBy('popularity.desc');
+        setCountryCode('');
         setPage(1);
     };
 
@@ -167,9 +226,23 @@ export default function DiscoverPage() {
         { value: 'popularity.asc', label: `${t('popularity')} ↑` },
         { value: 'vote_average.desc', label: `${t('ratingSort')} ↓` },
         { value: 'vote_average.asc', label: `${t('ratingSort')} ↑` },
+        { value: 'vote_count.desc', label: `${t('votes')} ↓` },
+        { value: 'vote_count.asc', label: `${t('votes')} ↑` },
         { value: mediaType === 'movie' ? 'primary_release_date.desc' : 'first_air_date.desc', label: `${t('releaseDate')} ↓` },
         { value: mediaType === 'movie' ? 'primary_release_date.asc' : 'first_air_date.asc', label: `${t('releaseDate')} ↑` },
+        ...(mediaType === 'movie' ? [{ value: 'original_title.asc', label: `${t('titleSort')} A-Z` }] : []),
+        ...(mediaType === 'movie' ? [{ value: 'original_title.desc', label: `${t('titleSort')} Z-A` }] : []),
+        ...(mediaType === 'movie' ? [{ value: 'revenue.desc', label: `${t('revenueSort')} ↓` }] : []),
+        ...(mediaType === 'movie' ? [{ value: 'revenue.asc', label: `${t('revenueSort')} ↑` }] : []),
     ];
+
+    const handlePageInputSubmit = () => {
+        const parsed = parseInt(pageInput, 10);
+        if (Number.isNaN(parsed)) return;
+        const maxPageFromData = totalPages > 0 ? totalPages : maxReachablePage;
+        const nextPage = Math.max(1, Math.min(parsed, maxPageFromData));
+        setPage(nextPage);
+    };
 
     return (
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -190,9 +263,9 @@ export default function DiscoverPage() {
 
             {/* Media type tabs */}
             <Tabs value={mediaType} onValueChange={(v) => setMediaType(v as MediaType)} className="mb-6">
-                <TabsList>
-                    <TabsTrigger value="movie">{t('movies')}</TabsTrigger>
-                    <TabsTrigger value="tv">{t('tvShows')}</TabsTrigger>
+                <TabsList className="w-full max-w-full justify-start overflow-x-auto">
+                    <TabsTrigger className="shrink-0" value="movie">{t('movies')}</TabsTrigger>
+                    <TabsTrigger className="shrink-0" value="tv">{t('tvShows')}</TabsTrigger>
                 </TabsList>
             </Tabs>
 
@@ -229,7 +302,7 @@ export default function DiscoverPage() {
                                 type="number"
                                 value={minVotes}
                                 onChange={(e) => setMinVotes(e.target.value)}
-                                placeholder="0"
+                                placeholder={String(getDefaultMinVotes(sortBy))}
                                 className="text-sm"
                                 min="0"
                             />
@@ -464,7 +537,38 @@ export default function DiscoverPage() {
 
                     {/* Pagination */}
                     {totalPages > 1 && (
-                        <div className="flex items-center justify-center gap-2 mt-8">
+                        <div className="mt-8 space-y-4">
+                            <div className="flex flex-col gap-3 rounded-lg border border-border/50 bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex items-center gap-2">
+                                    <label className="text-xs text-muted-foreground">{t('goToPage')}</label>
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        max={Math.max(1, totalPages || maxReachablePage)}
+                                        value={pageInput}
+                                        onChange={(e) => setPageInput(e.target.value)}
+                                        onBlur={handlePageInputSubmit}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handlePageInputSubmit();
+                                        }}
+                                        className="h-8 w-24 text-xs"
+                                    />
+                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                    {t('page', { current: page, total: totalPages })}
+                                </span>
+                            </div>
+
+                            <Slider
+                                value={[page]}
+                                min={1}
+                                max={Math.max(1, totalPages)}
+                                step={1}
+                                onValueChange={(value) => setPage(value[0])}
+                                className="px-1"
+                            />
+
+                            <div className="flex items-center justify-center gap-2">
                             <Button variant="outline" size="icon" className="h-8 w-8" disabled={page <= 1} onClick={() => setPage(1)}>
                                 <ChevronsLeft className="h-4 w-4" />
                             </Button>
@@ -495,10 +599,7 @@ export default function DiscoverPage() {
                             <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages} onClick={() => setPage(totalPages)}>
                                 <ChevronsRight className="h-4 w-4" />
                             </Button>
-
-                            <span className="ml-2 text-xs text-muted-foreground">
-                                {t('page', { current: page, total: totalPages })}
-                            </span>
+                            </div>
                         </div>
                     )}
                 </div>

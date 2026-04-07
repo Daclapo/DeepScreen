@@ -4,11 +4,12 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { Search, Sun, Moon, Settings, Languages } from 'lucide-react';
+import { Search, Sun, Moon, Settings, Languages, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/components/layout/theme-provider';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { SEARCH_DEBOUNCE_MS } from '@/lib/constants';
 
 interface SearchSuggestion {
@@ -31,6 +32,7 @@ export function Header() {
     const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [selectedIndex, setSelectedIndex] = useState(-1);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const searchContainerRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -141,6 +143,49 @@ export function Header() {
     return (
         <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
             <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
+                {/* Mobile menu */}
+                <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                    <SheetTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 md:hidden" aria-label="Open navigation menu">
+                            <Menu className="h-4 w-4" />
+                        </Button>
+                    </SheetTrigger>
+                    <SheetContent side="left" className="w-[85vw] max-w-xs">
+                        <SheetHeader className="px-0">
+                            <SheetTitle>DeepScreen</SheetTitle>
+                        </SheetHeader>
+                        <nav className="mt-2 flex flex-col gap-1">
+                            {navItems.map((item) => {
+                                const isActive = pathname === item.href || (item.href !== `/${locale}` && pathname.startsWith(item.href));
+                                return (
+                                    <SheetClose asChild key={`mobile-${item.href}`}>
+                                        <Link
+                                            href={item.href}
+                                            className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${isActive
+                                                ? 'text-primary bg-primary/10'
+                                                : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                                                }`}
+                                        >
+                                            {item.label}
+                                        </Link>
+                                    </SheetClose>
+                                );
+                            })}
+                            <SheetClose asChild>
+                                <Link
+                                    href={`/${locale}/settings`}
+                                    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${pathname.startsWith(`/${locale}/settings`)
+                                        ? 'text-primary bg-primary/10'
+                                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                                        }`}
+                                >
+                                    {t('settings')}
+                                </Link>
+                            </SheetClose>
+                        </nav>
+                    </SheetContent>
+                </Sheet>
+
                 {/* Logo */}
                 <Link href={`/${locale}`} className="flex items-center gap-1.5 font-semibold text-foreground hover:text-primary transition-colors">
                     <Image
@@ -187,7 +232,7 @@ export function Header() {
                                 onKeyDown={handleSearchKeyDown}
                                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                                 placeholder={t('searchPlaceholder')}
-                                className="h-9 w-64 rounded-md border border-border bg-secondary/50 px-3 pr-8 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                                className="h-9 w-[min(16rem,calc(100vw-7rem))] sm:w-64 rounded-md border border-border bg-secondary/50 px-3 pr-8 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                                 autoFocus
                             />
                             <Search className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

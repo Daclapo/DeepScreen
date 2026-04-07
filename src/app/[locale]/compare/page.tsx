@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import Image from 'next/image';
 import { useLocale, useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeftRight, X, Search, Star, Clock, Calendar, DollarSign, Film, Tv } from 'lucide-react';
+import { X, Search, Star, Film } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -77,7 +77,9 @@ export default function ComparePage() {
             rating: detail.vote_average || 0,
             votes: detail.vote_count || 0,
             genres: (detail.genres || []).map((g: { name: string }) => g.name).join(', '),
-            runtime: mediaType === 'movie' ? `${detail.runtime || 0} min` : `${detail.number_of_episodes || 0} ${tM('episodes')}`,
+            runtime: mediaType === 'movie'
+                ? (detail.runtime && detail.runtime > 0 ? `${detail.runtime} min` : '—')
+                : `${detail.number_of_episodes || 0} ${tM('episodes')}`,
             status: detail.status || '',
             overview: detail.overview || '',
             budget: mediaType === 'movie' ? formatCurrency(detail.budget || 0) : undefined,
@@ -216,31 +218,52 @@ export default function ComparePage() {
 
             {/* Comparison table */}
             {hasAtLeastTwo && (
-                <div className="rounded-xl border border-border overflow-hidden bg-card mt-8 overflow-x-auto">
-                    {/* Header Row */}
-                    <div className="grid grid-cols-[120px_repeat(4,1fr)] gap-4 px-4 py-3 bg-muted/50 border-b border-border/50 min-w-[600px]">
-                        <div className="text-xs font-semibold text-muted-foreground">{t('metric')}</div>
-                        {items.map((item, i) => (
-                            <div key={`head-${i}`} className="text-sm font-semibold truncate text-center">
-                                {item ? item.title : ''}
-                            </div>
-                        ))}
+                <>
+                    <div className="mt-8 space-y-4 md:hidden">
+                        {items.map((item, idx) => {
+                            if (!item) return null;
+                            return (
+                                <div key={`mobile-${item.id}-${idx}`} className="rounded-xl border border-border bg-card p-4">
+                                    <h3 className="text-sm font-semibold mb-3 truncate">{item.title}</h3>
+                                    <div className="space-y-2">
+                                        {comparisonRows.map((row) => (
+                                            <div key={`mobile-row-${row.label}-${idx}`} className="flex items-center justify-between gap-3 text-xs">
+                                                <span className="text-muted-foreground">{row.label}</span>
+                                                <span className={row.highlights[idx] ? 'font-semibold text-primary' : ''}>{row.values[idx]}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
 
-                    {/* Data Rows */}
-                    {comparisonRows.map((row, i) => (
-                        <div key={row.label} className={`grid grid-cols-[120px_repeat(4,1fr)] gap-4 px-4 py-3 min-w-[600px] hover:bg-muted/20 transition-colors ${i > 0 ? 'border-t border-border/50' : ''}`}>
-                            <div className="text-xs font-medium text-muted-foreground flex items-center">
-                                {row.label}
-                            </div>
-                            {row.values.map((val, idx) => (
-                                <div key={idx} className={`text-sm text-center flex items-center justify-center ${row.highlights[idx] ? 'font-bold text-primary bg-primary/5 rounded py-1' : ''}`}>
-                                    {val}
+                    <div className="hidden md:block rounded-xl border border-border overflow-hidden bg-card mt-8 overflow-x-auto">
+                        {/* Header Row */}
+                        <div className="grid grid-cols-[120px_repeat(4,1fr)] gap-4 px-4 py-3 bg-muted/50 border-b border-border/50 min-w-[600px]">
+                            <div className="text-xs font-semibold text-muted-foreground">{t('metric')}</div>
+                            {items.map((item, i) => (
+                                <div key={`head-${i}`} className="text-sm font-semibold truncate text-center">
+                                    {item ? item.title : ''}
                                 </div>
                             ))}
                         </div>
-                    ))}
-                </div>
+
+                        {/* Data Rows */}
+                        {comparisonRows.map((row, i) => (
+                            <div key={row.label} className={`grid grid-cols-[120px_repeat(4,1fr)] gap-4 px-4 py-3 min-w-[600px] hover:bg-muted/20 transition-colors ${i > 0 ? 'border-t border-border/50' : ''}`}>
+                                <div className="text-xs font-medium text-muted-foreground flex items-center">
+                                    {row.label}
+                                </div>
+                                {row.values.map((val, rowIdx) => (
+                                    <div key={rowIdx} className={`text-sm text-center flex items-center justify-center ${row.highlights[rowIdx] ? 'font-bold text-primary bg-primary/5 rounded py-1' : ''}`}>
+                                        {val}
+                                    </div>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                </>
             )}
 
             {!hasAtLeastTwo && (
