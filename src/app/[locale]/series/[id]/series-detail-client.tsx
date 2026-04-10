@@ -20,6 +20,7 @@ import { useTheme } from '@/components/layout/theme-provider';
 import { useRatingSource } from '@/hooks/use-rating-source';
 import { CountryFlag } from '@/components/ui/country-flag';
 import { OMDB_KEY_STORAGE_KEY } from '@/lib/constants';
+import { buildPersonPath } from '@/lib/slug';
 import type { TMDBSeriesDetail, EpisodeRating, OMDbSeasonResponse } from '@/types';
 
 interface Props {
@@ -268,7 +269,7 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
             {/* Content tabs */}
             <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
                 <Tabs defaultValue="overview">
-                    <TabsList className="w-full max-w-full justify-start overflow-x-auto">
+                    <TabsList className="w-full max-w-full justify-start overflow-x-auto md:overflow-visible no-scrollbar">
                         <TabsTrigger className="shrink-0" value="overview">{t('overview')}</TabsTrigger>
                         <TabsTrigger className="shrink-0" value="episodes">{t('episodes')}</TabsTrigger>
                         <TabsTrigger className="shrink-0" value="stats">{t('stats')}</TabsTrigger>
@@ -300,7 +301,7 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
                                     icon={<Star className="h-4 w-4" />}
                                     label={t('creator')}
                                     value={
-                                        <Link href={`/${locale}/person/${creator.id}`} className="hover:text-primary transition-colors hover:underline">
+                                        <Link href={buildPersonPath(locale, creator.id, creator.name)} className="hover:text-primary transition-colors hover:underline">
                                             {creator.name}
                                         </Link>
                                     }
@@ -325,7 +326,7 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
                                     {cast.map(member => (
                                         <Link
                                             key={member.id}
-                                            href={`/${locale}/person/${member.id}`}
+                                            href={buildPersonPath(locale, member.id, member.name)}
                                             className="group text-center"
                                         >
                                             <div className="relative aspect-[2/3] rounded-lg overflow-hidden mb-2 border border-border/30">

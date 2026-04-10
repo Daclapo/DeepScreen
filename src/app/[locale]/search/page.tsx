@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
-import { User } from 'lucide-react';
 import { MediaCard } from '@/components/media/media-card';
 import { MediaGridSkeleton } from '@/components/media/skeletons';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useState, Suspense } from 'react';
 import { TMDB_IMAGE_BASE, TMDB_PROFILE_SIZES } from '@/lib/constants';
 import { useTheme } from '@/components/layout/theme-provider';
+import { buildPersonPath } from '@/lib/slug';
 
 function SearchContent() {
     const searchParams = useSearchParams();
@@ -105,7 +105,7 @@ function SearchContent() {
                                 {personResults.map((p: { id: number; name: string; profile_path: string | null; known_for_department?: string }) => (
                                     <Link
                                         key={p.id}
-                                        href={`/${locale}/person/${p.id}`}
+                                        href={buildPersonPath(locale, p.id, p.name)}
                                         className="group text-center"
                                     >
                                         <div className="relative aspect-[2/3] rounded-lg overflow-hidden mb-2 border border-border/30 bg-muted">

@@ -1,7 +1,10 @@
-import { getSeriesDetails, getExternalIds } from '@/lib/api/tmdb';
+import { notFound, redirect } from 'next/navigation';
+import { getSeriesDetails } from '@/lib/api/tmdb';
+import { searchTV } from '@/lib/api/tmdb';
 import { getShowByImdbId, getEpisodes } from '@/lib/api/tvmaze';
 import { SeriesDetailClient } from './series-detail-client';
 import type { EpisodeRating } from '@/types';
+import { findBestMatchBySlug, parseNumericId, slugToSearchQuery, slugifyPathSegment } from '@/lib/slug';
 
 export default async function SeriesDetailPage({
     params,
@@ -10,9 +13,24 @@ export default async function SeriesDetailPage({
 }) {
     const { locale, id } = await params;
     const language = locale === 'es' ? 'es-ES' : 'en-US';
-    const tmdbId = parseInt(id, 10);
+    const rawId = decodeURIComponent(id);
+
+    let tmdbId = parseNumericId(rawId);
+
+    if (!tmdbId) {
+        const search = await searchTV(slugToSearchQuery(rawId), 1, language);
+        const match = findBestMatchBySlug(rawId, search.results || [], (item) => item.name);
+        if (!match) {
+            notFound();
+        }
+        tmdbId = match.id;
+    }
 
     const series = await getSeriesDetails(tmdbId, language);
+    const canonicalSlug = slugifyPathSegment(series.name);
+    if (rawId !== canonicalSlug) {
+        redirect(`/${locale}/series/${canonicalSlug}`);
+    }
 
     // Get episode ratings from TVMaze
     let episodeRatings: EpisodeRating[] = [];

@@ -3,9 +3,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import { Star, Clock, Film, Calendar } from 'lucide-react';
+import { Star, Film, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { TMDB_IMAGE_BASE, TMDB_POSTER_SIZES } from '@/lib/constants';
+import { buildMoviePath, buildSeriesPath } from '@/lib/slug';
 
 interface MediaCardProps {
     id: number;
@@ -40,7 +41,7 @@ function getDaysUntil(releaseDate: string): number | null {
 export function MediaCard({ id, title, posterPath, mediaType, year, rating, releaseDate, showMediaType = true, className = '' }: MediaCardProps) {
     const locale = useLocale();
     const t = useTranslations('media');
-    const href = mediaType === 'movie' ? `/${locale}/movie/${id}` : `/${locale}/series/${id}`;
+    const href = mediaType === 'movie' ? buildMoviePath(locale, id, title) : buildSeriesPath(locale, id, title);
     const posterUrl = posterPath
         ? `${TMDB_IMAGE_BASE}/${TMDB_POSTER_SIZES.medium}${posterPath}`
         : null;

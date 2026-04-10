@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { Star, Clock } from 'lucide-react';
 import { TMDB_IMAGE_BASE, TMDB_POSTER_SIZES, MOVIE_GENRES, TV_GENRES } from '@/lib/constants';
+import { buildMoviePath, buildSeriesPath } from '@/lib/slug';
 
 interface CompactMediaRowProps {
     id: number;
@@ -29,7 +30,7 @@ export function CompactMediaRow({ id, title, posterPath, mediaType, year, rating
     const locale = useLocale();
     const t = useTranslations('media');
 
-    const href = mediaType === 'movie' ? `/${locale}/movie/${id}` : `/${locale}/series/${id}`;
+    const href = mediaType === 'movie' ? buildMoviePath(locale, id, title) : buildSeriesPath(locale, id, title);
     const posterUrl = posterPath ? `${TMDB_IMAGE_BASE}/${TMDB_POSTER_SIZES.small}${posterPath}` : null;
     const upcoming = isUpcoming(releaseDate);
     const genreMap = mediaType === 'movie' ? MOVIE_GENRES : TV_GENRES;

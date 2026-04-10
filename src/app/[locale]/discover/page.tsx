@@ -263,7 +263,7 @@ export default function DiscoverPage() {
 
             {/* Media type tabs */}
             <Tabs value={mediaType} onValueChange={(v) => setMediaType(v as MediaType)} className="mb-6">
-                <TabsList className="w-full max-w-full justify-start overflow-x-auto">
+                <TabsList className="w-full max-w-full justify-start overflow-x-auto md:overflow-visible no-scrollbar">
                     <TabsTrigger className="shrink-0" value="movie">{t('movies')}</TabsTrigger>
                     <TabsTrigger className="shrink-0" value="tv">{t('tvShows')}</TabsTrigger>
                 </TabsList>

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { Search, ArrowRight } from 'lucide-react';
@@ -7,6 +8,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { MediaCard } from '@/components/media/media-card';
 import { SEARCH_DEBOUNCE_MS } from '@/lib/constants';
+import { buildMoviePath, buildSeriesPath } from '@/lib/slug';
 import type { TMDBMultiResult, TMDBMovie, TMDBSeries } from '@/types';
 
 interface HomeClientProps {
@@ -95,7 +97,9 @@ export function HomeClient({ trending, topMovies, topSeries, translations: t }: 
     };
 
     const handleSuggestionClick = (s: SearchSuggestion) => {
-        const route = s.media_type === 'movie' ? `/${locale}/movie/${s.id}` : `/${locale}/series/${s.id}`;
+        const route = s.media_type === 'movie'
+            ? buildMoviePath(locale, s.id, s.title)
+            : buildSeriesPath(locale, s.id, s.title);
         router.push(route);
         setShowSuggestions(false);
     };
@@ -140,6 +144,18 @@ export function HomeClient({ trending, topMovies, topSeries, translations: t }: 
         if (result.media_type === 'tv') return result.first_air_date;
         return undefined;
     };
+
+    const avgTrending = trending.length > 0
+        ? (trending.reduce((acc, item) => acc + (item.media_type !== 'person' ? item.vote_average || 0 : 0), 0) / trending.length).toFixed(1)
+        : '0.0';
+
+    const avgTopMovies = topMovies.length > 0
+        ? (topMovies.reduce((acc, item) => acc + (item.vote_average || 0), 0) / topMovies.length).toFixed(1)
+        : '0.0';
+
+    const avgTopSeries = topSeries.length > 0
+        ? (topSeries.reduce((acc, item) => acc + (item.vote_average || 0), 0) / topSeries.length).toFixed(1)
+        : '0.0';
 
     return (
         <div className="flex flex-col">
@@ -186,9 +202,11 @@ export function HomeClient({ trending, topMovies, topSeries, translations: t }: 
                                         }`}
                                 >
                                     {s.poster_path ? (
-                                        <img
+                                        <Image
                                             src={`https://image.tmdb.org/t/p/w92${s.poster_path}`}
                                             alt=""
+                                            width={32}
+                                            height={48}
                                             className="h-12 w-8 rounded object-cover"
                                         />
                                     ) : (
@@ -209,6 +227,24 @@ export function HomeClient({ trending, topMovies, topSeries, translations: t }: 
 
             {/* Content sections */}
             <div className="mx-auto w-full max-w-7xl space-y-12 px-4 pb-16 sm:px-6">
+                <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <a href={`/${locale}/discover?sort=popularity.desc`} className="rounded-xl border border-border/60 bg-card p-4 hover:border-primary/40 hover:bg-accent/20 transition-colors">
+                        <p className="text-xs text-muted-foreground">Trending quality</p>
+                        <p className="text-2xl font-semibold mt-1">{avgTrending}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Filtered by minimum votes</p>
+                    </a>
+                    <a href={`/${locale}/discover?type=movie&sort=vote_average.desc`} className="rounded-xl border border-border/60 bg-card p-4 hover:border-primary/40 hover:bg-accent/20 transition-colors">
+                        <p className="text-xs text-muted-foreground">Top Movies avg</p>
+                        <p className="text-2xl font-semibold mt-1">{avgTopMovies}</p>
+                        <p className="text-xs text-muted-foreground mt-1">High-signal picks</p>
+                    </a>
+                    <a href={`/${locale}/discover?type=tv&sort=vote_average.desc`} className="rounded-xl border border-border/60 bg-card p-4 hover:border-primary/40 hover:bg-accent/20 transition-colors">
+                        <p className="text-xs text-muted-foreground">Top Series avg</p>
+                        <p className="text-2xl font-semibold mt-1">{avgTopSeries}</p>
+                        <p className="text-xs text-muted-foreground mt-1">High-signal picks</p>
+                    </a>
+                </section>
+
                 {/* Trending */}
                 <Section
                     title={t.trendingToday}

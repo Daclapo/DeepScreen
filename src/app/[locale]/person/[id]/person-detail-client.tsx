@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TMDB_IMAGE_BASE, TMDB_PROFILE_SIZES, TMDB_POSTER_SIZES, MOVIE_GENRES, TV_GENRES } from '@/lib/constants';
 import { useTheme } from '@/components/layout/theme-provider';
+import { buildMoviePath, buildSeriesPath } from '@/lib/slug';
 import type { TMDBPersonDetail, TMDBPersonCombinedCredits } from '@/types';
 
 interface Props {
@@ -346,7 +347,7 @@ export function PersonDetailClient({ person, credits }: Props) {
                         {filteredFilmography.slice(0, 60).map((c) => (
                             <Link
                                 key={`${c.media_type}-${c.id}`}
-                                href={`/${locale}/${c.media_type === 'movie' ? 'movie' : 'series'}/${c.id}`}
+                                href={c.media_type === 'movie' ? buildMoviePath(locale, c.id, c.title) : buildSeriesPath(locale, c.id, c.title)}
                                 className="group"
                             >
                                 <div className="relative aspect-[2/3] rounded-lg overflow-hidden mb-2 border border-border/30 bg-muted">

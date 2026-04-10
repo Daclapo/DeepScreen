@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { ChevronRight, Home, ArrowLeft } from 'lucide-react';
 import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import { deslugifyPathSegment, parseNumericId } from '@/lib/slug';
 
 interface TrailItem {
     href: string;
@@ -54,19 +55,25 @@ export function NavigationTrail() {
     const currentItem = useMemo(() => {
         if (isExcluded) return null;
 
-        const movieMatch = pathname.match(new RegExp(`^/${locale}/movie/(\\d+)$`));
+        const movieMatch = pathname.match(new RegExp(`^/${locale}/movie/([^/]+)$`));
         if (movieMatch) {
-            return { href: pathname, label: `${tMedia('movie')} #${movieMatch[1]}` };
+            const segment = movieMatch[1];
+            const label = parseNumericId(segment) ? `${tMedia('movie')} #${segment}` : deslugifyPathSegment(segment);
+            return { href: pathname, label };
         }
 
-        const seriesMatch = pathname.match(new RegExp(`^/${locale}/series/(\\d+)$`));
+        const seriesMatch = pathname.match(new RegExp(`^/${locale}/series/([^/]+)$`));
         if (seriesMatch) {
-            return { href: pathname, label: `${tMedia('series')} #${seriesMatch[1]}` };
+            const segment = seriesMatch[1];
+            const label = parseNumericId(segment) ? `${tMedia('series')} #${segment}` : deslugifyPathSegment(segment);
+            return { href: pathname, label };
         }
 
-        const personMatch = pathname.match(new RegExp(`^/${locale}/person/(\\d+)$`));
+        const personMatch = pathname.match(new RegExp(`^/${locale}/person/([^/]+)$`));
         if (personMatch) {
-            return { href: pathname, label: `${tPerson('people')} #${personMatch[1]}` };
+            const segment = personMatch[1];
+            const label = parseNumericId(segment) ? `${tPerson('people')} #${segment}` : deslugifyPathSegment(segment);
+            return { href: pathname, label };
         }
 
         if (pathname.startsWith(`/${locale}/search`)) {
@@ -83,8 +90,10 @@ export function NavigationTrail() {
     const trail = useMemo(() => {
         if (!currentItem) return [];
         const currentTrail = readTrail();
-        const withoutCurrent = currentTrail.filter((item) => item.href !== currentItem.href);
-        const nextTrail = [...withoutCurrent, currentItem].slice(-5);
+        const existingIndex = currentTrail.findIndex((item) => item.href === currentItem.href);
+        const nextTrail = existingIndex >= 0
+            ? currentTrail.slice(0, existingIndex + 1).map((item) => item.href === currentItem.href ? currentItem : item)
+            : [...currentTrail, currentItem].slice(-5);
         writeTrail(nextTrail);
         return nextTrail;
     }, [currentItem]);
@@ -103,9 +112,8 @@ export function NavigationTrail() {
             </Button>
 
             <div className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-                <Link href={`/${locale}`} className="inline-flex items-center gap-1 hover:text-foreground transition-colors">
+                <Link href={`/${locale}`} className="inline-flex items-center hover:text-foreground transition-colors" aria-label={tNav('home')}>
                     <Home className="h-3.5 w-3.5" />
-                    <span>{tNav('home')}</span>
                 </Link>
 
                 {visibleTrail.map((item, index) => {

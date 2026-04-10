@@ -13,6 +13,7 @@ import { MediaCard } from '@/components/media/media-card';
 import { useTheme } from '@/components/layout/theme-provider';
 import { CountryFlag } from '@/components/ui/country-flag';
 import { OMDB_KEY_STORAGE_KEY } from '@/lib/constants';
+import { buildPersonPath } from '@/lib/slug';
 import type { TMDBMovieDetail } from '@/types';
 
 interface Props {
@@ -284,7 +285,7 @@ export function MovieDetailClient({ movie }: Props) {
             {/* Content tabs */}
             <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
                 <Tabs defaultValue="overview">
-                    <TabsList className="w-full max-w-full justify-start overflow-x-auto">
+                    <TabsList className="w-full max-w-full justify-start overflow-x-auto md:overflow-visible no-scrollbar">
                         <TabsTrigger className="shrink-0" value="overview">{t('overview')}</TabsTrigger>
                         <TabsTrigger className="shrink-0" value="stats">{t('stats')}</TabsTrigger>
                         <TabsTrigger className="shrink-0" value="recommendations">{t('recommendations')}</TabsTrigger>
@@ -316,7 +317,7 @@ export function MovieDetailClient({ movie }: Props) {
                                     icon={<Star className="h-4 w-4" />}
                                     label={t('director')}
                                     value={
-                                        <Link href={`/${locale}/person/${director.id}`} className="hover:text-primary transition-colors hover:underline">
+                                        <Link href={buildPersonPath(locale, director.id, director.name)} className="hover:text-primary transition-colors hover:underline">
                                             {director.name}
                                         </Link>
                                     }
@@ -367,7 +368,7 @@ export function MovieDetailClient({ movie }: Props) {
                                     {cast.map(member => (
                                         <Link
                                             key={member.id}
-                                            href={`/${locale}/person/${member.id}`}
+                                            href={buildPersonPath(locale, member.id, member.name)}
                                             className="group text-center"
                                         >
                                             <div className="relative aspect-[2/3] rounded-lg overflow-hidden mb-2 border border-border/30">

@@ -11,6 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { SEARCH_DEBOUNCE_MS } from '@/lib/constants';
+import { buildMoviePath, buildSeriesPath } from '@/lib/slug';
 
 interface SearchSuggestion {
     id: number;
@@ -112,8 +113,8 @@ export function Header() {
 
     const handleSuggestionClick = (suggestion: SearchSuggestion) => {
         const route = suggestion.media_type === 'movie'
-            ? `/${locale}/movie/${suggestion.id}`
-            : `/${locale}/series/${suggestion.id}`;
+            ? buildMoviePath(locale, suggestion.id, suggestion.title)
+            : buildSeriesPath(locale, suggestion.id, suggestion.title);
         router.push(route);
         setSearchOpen(false);
         setShowSuggestions(false);
@@ -249,9 +250,11 @@ export function Header() {
                                                 }`}
                                         >
                                             {s.poster_path ? (
-                                                <img
+                                                <Image
                                                     src={`https://image.tmdb.org/t/p/w92${s.poster_path}`}
                                                     alt=""
+                                                    width={28}
+                                                    height={40}
                                                     className="h-10 w-7 rounded object-cover"
                                                 />
                                             ) : (

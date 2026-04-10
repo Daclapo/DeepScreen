@@ -113,7 +113,7 @@ export default function UpcomingPage() {
             <p className="text-sm text-muted-foreground mb-6">{t('subtitle')}</p>
 
             <Tabs value={tab} onValueChange={(v) => setTab(v as MediaType)} className="mb-6">
-                <TabsList className="w-full max-w-full justify-start overflow-x-auto">
+                <TabsList className="w-full max-w-full justify-start overflow-x-auto md:overflow-visible no-scrollbar">
                     <TabsTrigger className="shrink-0" value="movie">{t('upcomingMovies')}</TabsTrigger>
                     <TabsTrigger className="shrink-0" value="tv">{t('upcomingSeries')}</TabsTrigger>
                 </TabsList>
