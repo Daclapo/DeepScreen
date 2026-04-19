@@ -24,7 +24,7 @@ export const OMDB_API_BASE = 'https://www.omdbapi.com';
 
 // App constants
 export const ITEMS_PER_PAGE = 20;
-export const ITEMS_PER_PAGE_OPTIONS = [20, 40, 60] as const;
+export const ITEMS_PER_PAGE_OPTIONS = [20, 50, 100, 200, 500] as const;
 export const SEARCH_DEBOUNCE_MS = 300;
 export const DEFAULT_MIN_VOTES = 1000;
 

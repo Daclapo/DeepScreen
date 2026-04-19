@@ -4,10 +4,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { useState, useMemo } from 'react';
-import { Calendar, MapPin, Star, Film } from 'lucide-react';
+import { Calendar, MapPin, Star, Film, Maximize2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { TMDB_IMAGE_BASE, TMDB_PROFILE_SIZES, TMDB_POSTER_SIZES, MOVIE_GENRES, TV_GENRES } from '@/lib/constants';
 import { useTheme } from '@/components/layout/theme-provider';
 import { buildMoviePath, buildSeriesPath } from '@/lib/slug';
@@ -40,6 +41,7 @@ export function PersonDetailClient({ person, credits }: Props) {
     const [roleFilter, setRoleFilter] = useState<'all' | 'acting' | 'directing' | 'producing'>('all');
     const [mediaFilter, setMediaFilter] = useState<'all' | 'movie' | 'tv'>('all');
     const [sortBy, setSortBy] = useState<'relevance' | 'rating' | 'date' | 'title'>('rating');
+    const [showLightbox, setShowLightbox] = useState(false);
 
     const profileUrl = person.profile_path
         ? `${TMDB_IMAGE_BASE}/${TMDB_PROFILE_SIZES.original}${person.profile_path}`
@@ -238,9 +240,18 @@ export function PersonDetailClient({ person, credits }: Props) {
             {/* Header */}
             <div className="flex flex-col sm:flex-row gap-8 mb-10">
                 <div className="flex-shrink-0 w-48 sm:w-56">
-                    <div className="relative aspect-[2/3] rounded-xl overflow-hidden border border-border/30 shadow-lg">
+                    <button
+                        type="button"
+                        onClick={() => profileUrl && setShowLightbox(true)}
+                        className="group relative aspect-[2/3] w-full rounded-xl overflow-hidden border border-border/30 shadow-lg cursor-zoom-in"
+                    >
                         {profileUrl ? (
-                            <Image src={profileUrl} alt={person.name} fill sizes="250px" className="object-cover" />
+                            <>
+                                <Image src={profileUrl} alt={person.name} fill sizes="250px" className="object-cover" />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                    <Maximize2 className="h-6 w-6 text-white opacity-0 group-hover:opacity-80 transition-opacity" />
+                                </div>
+                            </>
                         ) : (
                             <div
                                 className="absolute inset-0 flex items-center justify-center"
@@ -255,7 +266,7 @@ export function PersonDetailClient({ person, credits }: Props) {
                                 />
                             </div>
                         )}
-                    </div>
+                    </button>
                 </div>
 
                 <div className="flex-1">
@@ -436,6 +447,13 @@ export function PersonDetailClient({ person, credits }: Props) {
                     )}
                 </TabsContent>
             </Tabs>
+
+            <ImageLightbox
+                open={showLightbox}
+                src={profileUrl}
+                alt={person.name}
+                onClose={() => setShowLightbox(false)}
+            />
         </div>
     );
 }

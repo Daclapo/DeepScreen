@@ -167,6 +167,8 @@
         "tvShows": "Series",
         "gridView": "Vista Cuadrícula",
         "listView": "Vista Lista",
+        "denseView": "Vista Densa",
+        "rank": "Pos.",
         "perPage": "Por página",
         "from": "Desde",
         "to": "Hasta",

@@ -167,6 +167,8 @@
         "tvShows": "TV Shows",
         "gridView": "Grid View",
         "listView": "List View",
+        "denseView": "Dense View",
+        "rank": "Rank",
         "perPage": "Per page",
         "from": "From",
         "to": "To",

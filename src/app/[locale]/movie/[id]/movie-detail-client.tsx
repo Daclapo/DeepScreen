@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import { Star, Calendar, Clock, Globe, Play, X, Maximize2, ExternalLink } from 'lucide-react';
+import { Star, Calendar, Clock, Globe, Play, Maximize2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { TMDB_IMAGE_BASE, TMDB_POSTER_SIZES, TMDB_BACKDROP_SIZES, TMDB_PROFILE_SIZES } from '@/lib/constants';
 import { MediaCard } from '@/components/media/media-card';
 import { useTheme } from '@/components/layout/theme-provider';
@@ -52,13 +53,6 @@ export function MovieDetailClient({ movie }: Props) {
     const fullPosterUrl = movie.poster_path
         ? `${TMDB_IMAGE_BASE}/${TMDB_POSTER_SIZES.original}${movie.poster_path}`
         : null;
-
-    useEffect(() => {
-        if (!showLightbox) return;
-        const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowLightbox(false); };
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
-    }, [showLightbox]);
 
     // External links
     const imdbId = movie.external_ids?.imdb_id;
@@ -462,29 +456,12 @@ export function MovieDetailClient({ movie }: Props) {
                 </Tabs>
             </div>
 
-            {/* Poster Lightbox */}
-            {showLightbox && fullPosterUrl && (
-                <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm cursor-zoom-out"
-                    onClick={() => setShowLightbox(false)}
-                >
-                    <button
-                        className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center z-10"
-                        onClick={() => setShowLightbox(false)}
-                    >
-                        <X className="h-5 w-5 text-white" />
-                    </button>
-                    <div className="relative max-h-[90vh] max-w-[90vw]" onClick={e => e.stopPropagation()}>
-                        <Image
-                            src={fullPosterUrl}
-                            alt={movie.title}
-                            width={800}
-                            height={1200}
-                            className="object-contain max-h-[90vh] rounded-lg shadow-2xl"
-                        />
-                    </div>
-                </div>
-            )}
+            <ImageLightbox
+                open={showLightbox}
+                src={fullPosterUrl}
+                alt={movie.title}
+                onClose={() => setShowLightbox(false)}
+            />
         </div>
     );
 }

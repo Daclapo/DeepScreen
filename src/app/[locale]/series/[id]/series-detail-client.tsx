@@ -5,10 +5,11 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import { Star, Calendar, Tv, Play, ExternalLink } from 'lucide-react';
+import { Star, Calendar, Tv, Play, Maximize2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { TMDB_IMAGE_BASE, TMDB_POSTER_SIZES, TMDB_BACKDROP_SIZES, TMDB_PROFILE_SIZES } from '@/lib/constants';
 import { MediaCard } from '@/components/media/media-card';
 import { EpisodeHeatmap } from '@/components/heatmap/episode-heatmap';
@@ -101,6 +102,9 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
     const posterUrl = series.poster_path
         ? `${TMDB_IMAGE_BASE}/${TMDB_POSTER_SIZES.large}${series.poster_path}`
         : null;
+    const fullPosterUrl = series.poster_path
+        ? `${TMDB_IMAGE_BASE}/${TMDB_POSTER_SIZES.original}${series.poster_path}`
+        : null;
 
     const creator = series.created_by?.[0];
     const firstYear = series.first_air_date?.slice(0, 4);
@@ -125,6 +129,7 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
     // On-demand IMDb rating
     const [imdbSeriesRating, setImdbSeriesRating] = useState<string | null>(null);
     const [imdbSeriesLoading, setImdbSeriesLoading] = useState(false);
+    const [showLightbox, setShowLightbox] = useState(false);
     const fetchImdbSeriesRating = useCallback(async () => {
         const key = localStorage.getItem(OMDB_KEY_STORAGE_KEY);
         const iid = series.external_ids?.imdb_id;
@@ -172,9 +177,16 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
                 <div className="absolute bottom-0 left-0 right-0 px-4 pb-8 sm:px-6">
                     <div className="mx-auto max-w-7xl flex gap-6 items-end">
                         {posterUrl && (
-                            <div className="hidden sm:block relative h-48 w-32 rounded-lg overflow-hidden shadow-2xl border border-border/30 flex-shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setShowLightbox(true)}
+                                className="hidden sm:block relative h-48 w-32 rounded-lg overflow-hidden shadow-2xl border border-border/30 flex-shrink-0 cursor-zoom-in group"
+                            >
                                 <Image src={posterUrl} alt={series.name} fill className="object-cover" />
-                            </div>
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                    <Maximize2 className="h-5 w-5 text-white opacity-0 group-hover:opacity-80 transition-opacity" />
+                                </div>
+                            </button>
                         )}
                         <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -446,6 +458,13 @@ export function SeriesDetailClient({ series, episodeRatings: tvmazeRatings }: Pr
                     </TabsContent>
                 </Tabs>
             </div>
+
+            <ImageLightbox
+                open={showLightbox}
+                src={fullPosterUrl}
+                alt={series.name}
+                onClose={() => setShowLightbox(false)}
+            />
         </div>
     );
 }

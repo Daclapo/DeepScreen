@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Grid3X3, List, SlidersHorizontal } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Grid3X3, List, Rows3, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -15,11 +15,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { MediaCard } from '@/components/media/media-card';
 import { CompactMediaRow } from '@/components/media/compact-media-row';
+import { DenseMediaRow } from '@/components/media/dense-media-row';
 import { MediaGridSkeleton } from '@/components/media/skeletons';
 import { MOVIE_GENRES, TV_GENRES } from '@/lib/constants';
 import type { MediaType } from '@/types';
 
-const ITEMS_PER_PAGE_OPTIONS = [20, 40, 60, 100, 200, 300, 500];
+const ITEMS_PER_PAGE_OPTIONS = [20, 50, 100, 200, 500] as const;
+
+function isPerPageOption(value: number): value is (typeof ITEMS_PER_PAGE_OPTIONS)[number] {
+    return ITEMS_PER_PAGE_OPTIONS.includes(value as (typeof ITEMS_PER_PAGE_OPTIONS)[number]);
+}
 
 const DEFAULT_MIN_VOTES_BY_SORT = {
     popularity: 200,
@@ -76,37 +81,58 @@ export default function DiscoverPage() {
     const locale = useLocale();
     const t = useTranslations('discover');
     const language = locale === 'es' ? 'es-ES' : 'en-US';
+    const router = useRouter();
+    const pathname = usePathname();
     const searchParams = useSearchParams();
 
     // Read initial values from URL params (from home page "Explore All" links)
-    const initialType = (searchParams.get('type') as MediaType) || 'movie';
+    const typeParam = searchParams.get('type');
+    const initialType: MediaType = typeParam === 'tv' ? 'tv' : 'movie';
     const initialSort = searchParams.get('sort') || 'popularity.desc';
     const initialPage = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const initialPerPageRaw = Number(searchParams.get('perPage'));
+    const initialPerPage: (typeof ITEMS_PER_PAGE_OPTIONS)[number] = isPerPageOption(initialPerPageRaw) ? initialPerPageRaw : 20;
+    const initialGenres = (searchParams.get('genres') || '')
+        .split(',')
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0);
+    const initialViewModeParam = searchParams.get('view');
+    const initialViewMode: 'grid' | 'list' | 'dense' =
+        initialViewModeParam === 'list' || initialViewModeParam === 'dense' ? initialViewModeParam : 'grid';
+    const initialMinVotes = searchParams.get('minVotes') || String(getDefaultMinVotes(initialSort));
 
     const [mediaType, setMediaType] = useState<MediaType>(initialType);
-    const [genres, setGenres] = useState<number[]>([]);
+    const [genres, setGenres] = useState<number[]>(initialGenres);
     const [sortBy, setSortBy] = useState(initialSort);
-    const [yearFrom, setYearFrom] = useState('');
-    const [yearTo, setYearTo] = useState('');
-    const [ratingMin, setRatingMin] = useState('');
-    const [ratingMax, setRatingMax] = useState('');
-    const [minVotes, setMinVotes] = useState<string>(String(getDefaultMinVotes(initialSort)));
+    const [yearFrom, setYearFrom] = useState(searchParams.get('yearFrom') || '');
+    const [yearTo, setYearTo] = useState(searchParams.get('yearTo') || '');
+    const [ratingMin, setRatingMin] = useState(searchParams.get('ratingMin') || '');
+    const [ratingMax, setRatingMax] = useState(searchParams.get('ratingMax') || '');
+    const [minVotes, setMinVotes] = useState<string>(initialMinVotes);
     const [page, setPage] = useState(initialPage);
+    const [pageSliderValue, setPageSliderValue] = useState(initialPage);
+    const [isPageSliderDragging, setIsPageSliderDragging] = useState(false);
     const [pageInput, setPageInput] = useState(String(initialPage));
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-    const [perPage, setPerPage] = useState(20);
+    const [viewMode, setViewMode] = useState<'grid' | 'list' | 'dense'>(initialViewMode);
+    const [perPage, setPerPage] = useState<(typeof ITEMS_PER_PAGE_OPTIONS)[number]>(initialPerPage);
     const [showFilters, setShowFilters] = useState(false);
 
     // Advanced Filters
-    const [runtimeMin, setRuntimeMin] = useState('');
-    const [runtimeMax, setRuntimeMax] = useState('');
-    const [languageCode, setLanguageCode] = useState('');
-    const [countryCode, setCountryCode] = useState('');
+    const [runtimeMin, setRuntimeMin] = useState(searchParams.get('runtimeMin') || '');
+    const [runtimeMax, setRuntimeMax] = useState(searchParams.get('runtimeMax') || '');
+    const [languageCode, setLanguageCode] = useState(searchParams.get('languageCode') || '');
+    const [countryCode, setCountryCode] = useState(searchParams.get('countryCode') || '');
 
     const genreMap = mediaType === 'movie' ? MOVIE_GENRES : TV_GENRES;
+    const hasMountedRef = useRef(false);
+    const hasInitializedSortVotesRef = useRef(false);
 
     // Auto-set min votes when sorting changes
     useEffect(() => {
+        if (!hasInitializedSortVotesRef.current) {
+            hasInitializedSortVotesRef.current = true;
+            return;
+        }
         setMinVotes(String(getDefaultMinVotes(sortBy)));
     }, [sortBy]);
 
@@ -114,10 +140,73 @@ export default function DiscoverPage() {
         setPageInput(String(page));
     }, [page]);
 
+    useEffect(() => {
+        setPageSliderValue(page);
+    }, [page]);
+
     // Reset page on filter change
     useEffect(() => {
+        if (!hasMountedRef.current) {
+            hasMountedRef.current = true;
+            return;
+        }
         setPage(1);
     }, [mediaType, genres, sortBy, yearFrom, yearTo, ratingMin, ratingMax, minVotes, perPage, runtimeMin, runtimeMax, languageCode, countryCode]);
+
+    useEffect(() => {
+        const params = new URLSearchParams(searchParams.toString());
+        const defaultMinVotes = String(getDefaultMinVotes(sortBy));
+
+        const setParam = (key: string, value?: string) => {
+            if (!value) {
+                params.delete(key);
+                return;
+            }
+            params.set(key, value);
+        };
+
+        setParam('type', mediaType === 'movie' ? undefined : mediaType);
+        setParam('sort', sortBy === 'popularity.desc' ? undefined : sortBy);
+        setParam('page', page > 1 ? String(page) : undefined);
+        setParam('perPage', perPage === 20 ? undefined : String(perPage));
+        setParam('genres', genres.length > 0 ? genres.join(',') : undefined);
+        setParam('yearFrom', yearFrom || undefined);
+        setParam('yearTo', yearTo || undefined);
+        setParam('ratingMin', ratingMin || undefined);
+        setParam('ratingMax', ratingMax || undefined);
+        setParam('minVotes', minVotes && minVotes !== defaultMinVotes ? minVotes : undefined);
+        setParam('runtimeMin', runtimeMin || undefined);
+        setParam('runtimeMax', runtimeMax || undefined);
+        setParam('languageCode', languageCode || undefined);
+        setParam('countryCode', countryCode || undefined);
+        setParam('view', viewMode === 'grid' ? undefined : viewMode);
+
+        const currentQuery = searchParams.toString();
+        const nextQuery = params.toString();
+
+        if (currentQuery !== nextQuery) {
+            router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+        }
+    }, [
+        countryCode,
+        genres,
+        languageCode,
+        mediaType,
+        minVotes,
+        page,
+        pathname,
+        perPage,
+        ratingMax,
+        ratingMin,
+        router,
+        runtimeMax,
+        runtimeMin,
+        searchParams,
+        sortBy,
+        viewMode,
+        yearFrom,
+        yearTo,
+    ]);
 
     // Calculate how many TMDB pages we need (TMDB returns 20 per page)
     const maxReachablePage = Math.max(1, Math.floor(10000 / perPage));
@@ -196,6 +285,13 @@ export default function DiscoverPage() {
     const totalPages = data?.total_pages || 0;
     const totalResults = data?.total_results || 0;
 
+    const pageSliderProgress = useMemo(() => {
+        const maxPage = Math.max(1, totalPages);
+        if (maxPage <= 1) return 0;
+        const clamped = Math.max(1, Math.min(pageSliderValue, maxPage));
+        return ((clamped - 1) / (maxPage - 1)) * 100;
+    }, [pageSliderValue, totalPages]);
+
     useEffect(() => {
         if (totalPages > 0 && page > totalPages) {
             setPage(totalPages);
@@ -236,6 +332,13 @@ export default function DiscoverPage() {
         ...(mediaType === 'movie' ? [{ value: 'revenue.asc', label: `${t('revenueSort')} ↑` }] : []),
     ];
 
+    const handlePerPageTabChange = (value: string) => {
+        const parsed = Number(value);
+        if (isPerPageOption(parsed)) {
+            setPerPage(parsed);
+        }
+    };
+
     const handlePageInputSubmit = () => {
         const parsed = parseInt(pageInput, 10);
         if (Number.isNaN(parsed)) return;
@@ -249,11 +352,38 @@ export default function DiscoverPage() {
             <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-bold">{t('title')}</h1>
                 <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewMode('grid')} data-active={viewMode === 'grid'}>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 data-[active=true]:bg-accent/70"
+                        title={t('gridView')}
+                        aria-label={t('gridView')}
+                        onClick={() => setViewMode('grid')}
+                        data-active={viewMode === 'grid'}
+                    >
                         <Grid3X3 className={`h-4 w-4 ${viewMode === 'grid' ? 'text-primary' : ''}`} />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewMode('list')} data-active={viewMode === 'list'}>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 data-[active=true]:bg-accent/70"
+                        title={t('listView')}
+                        aria-label={t('listView')}
+                        onClick={() => setViewMode('list')}
+                        data-active={viewMode === 'list'}
+                    >
                         <List className={`h-4 w-4 ${viewMode === 'list' ? 'text-primary' : ''}`} />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 data-[active=true]:bg-accent/70"
+                        title={t('denseView')}
+                        aria-label={t('denseView')}
+                        onClick={() => setViewMode('dense')}
+                        data-active={viewMode === 'dense'}
+                    >
+                        <Rows3 className={`h-4 w-4 ${viewMode === 'dense' ? 'text-primary' : ''}`} />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 sm:hidden" onClick={() => setShowFilters(!showFilters)}>
                         <SlidersHorizontal className="h-4 w-4" />
@@ -460,20 +590,25 @@ export default function DiscoverPage() {
                         <Separator />
 
                         {/* Per page */}
-                        <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-2 block">{t('perPage')}</label>
-                            <div className="flex gap-2">
-                                {ITEMS_PER_PAGE_OPTIONS.map(n => (
-                                    <Badge
-                                        key={n}
-                                        variant={perPage === n ? 'default' : 'outline'}
-                                        className="cursor-pointer"
-                                        onClick={() => setPerPage(n)}
-                                    >
-                                        {n}
-                                    </Badge>
-                                ))}
+                        <div className="space-y-3 overflow-hidden">
+                            <div className="flex items-center justify-between gap-2">
+                                <label className="text-xs font-medium text-muted-foreground">{t('perPage')}</label>
+                                <span className="text-xs font-semibold tabular-nums">{perPage}</span>
                             </div>
+
+                            <Tabs value={String(perPage)} onValueChange={handlePerPageTabChange}>
+                                <TabsList className="grid w-full grid-cols-5 h-auto p-1">
+                                    {ITEMS_PER_PAGE_OPTIONS.map((n) => (
+                                        <TabsTrigger
+                                            key={n}
+                                            value={String(n)}
+                                            className="min-w-0 px-1 py-1.5 text-[11px] tabular-nums sm:text-xs"
+                                        >
+                                            {n}
+                                        </TabsTrigger>
+                                    ))}
+                                </TabsList>
+                            </Tabs>
                         </div>
                     </div>
                 </aside>
@@ -512,7 +647,7 @@ export default function DiscoverPage() {
                                 );
                             })}
                         </div>
-                    ) : (
+                    ) : viewMode === 'list' ? (
                         <div className="space-y-2">
                             {results.slice(0, perPage).map((item: Record<string, unknown>) => {
                                 const title = (item.title || item.name || '') as string;
@@ -532,6 +667,32 @@ export default function DiscoverPage() {
                                     />
                                 );
                             })}
+                        </div>
+                    ) : (
+                        <div className="overflow-hidden rounded-lg border border-border/50 bg-card/40">
+                            <div className="grid grid-cols-[2.75rem_minmax(0,1fr)_4.5rem] border-b border-border/60 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                <span>{t('rank')}</span>
+                                <span>{t('titleSort')}</span>
+                                <span className="text-right">{t('ratingSort')}</span>
+                            </div>
+                            <div className="divide-y divide-border/50">
+                                {results.slice(0, perPage).map((item: Record<string, unknown>, index) => {
+                                    const title = (item.title || item.name || '') as string;
+                                    const date = (item.release_date || item.first_air_date || '') as string;
+                                    return (
+                                        <DenseMediaRow
+                                            key={`dense-${item.id as number}`}
+                                            rank={(safePage - 1) * perPage + index + 1}
+                                            id={item.id as number}
+                                            title={title}
+                                            mediaType={mediaType}
+                                            year={date?.slice(0, 4)}
+                                            rating={item.vote_average as number}
+                                            voteCount={item.vote_count as number}
+                                        />
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
 
@@ -559,33 +720,52 @@ export default function DiscoverPage() {
                                 </span>
                             </div>
 
-                            <Slider
-                                value={[page]}
-                                min={1}
-                                max={Math.max(1, totalPages)}
-                                step={1}
-                                onValueChange={(value) => setPage(value[0])}
-                                className="px-1"
-                            />
+                            <div className="relative px-1 pt-6">
+                                <span
+                                    className={`pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-md border border-border/60 bg-background px-2 py-0.5 text-[10px] font-semibold leading-none shadow-sm tabular-nums transition-all ${isPageSliderDragging ? 'opacity-100' : 'opacity-0'}`}
+                                    style={{ left: `clamp(0.875rem, ${pageSliderProgress}%, calc(100% - 0.875rem))` }}
+                                >
+                                    {pageSliderValue}
+                                </span>
 
-                            <div className="flex items-center justify-center gap-2">
-                            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page <= 1} onClick={() => setPage(1)}>
+                                <Slider
+                                    value={[Math.max(1, Math.min(pageSliderValue, Math.max(1, totalPages)))]}
+                                    min={1}
+                                    max={Math.max(1, totalPages)}
+                                    step={1}
+                                    onPointerDown={() => setIsPageSliderDragging(true)}
+                                    onPointerUp={() => setIsPageSliderDragging(false)}
+                                    onPointerCancel={() => setIsPageSliderDragging(false)}
+                                    onBlur={() => setIsPageSliderDragging(false)}
+                                    onValueChange={(value) => {
+                                        setIsPageSliderDragging(true);
+                                        setPageSliderValue(value[0] ?? 1);
+                                    }}
+                                    onValueCommit={(value) => {
+                                        setPage(value[0] ?? 1);
+                                        setIsPageSliderDragging(false);
+                                    }}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-start gap-2 overflow-x-auto pb-1 sm:justify-center no-scrollbar">
+                            <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={page <= 1} onClick={() => setPage(1)}>
                                 <ChevronsLeft className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+                            <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
                                 <ChevronLeft className="h-4 w-4" />
                             </Button>
 
                             {/* Page numbers */}
                             {getPageNumbers(page, totalPages).map((p, i) => (
                                 p === '...' ? (
-                                    <span key={`ellipsis-${i}`} className="px-1 text-muted-foreground text-sm">…</span>
+                                    <span key={`ellipsis-${i}`} className="px-1 text-muted-foreground text-sm shrink-0">…</span>
                                 ) : (
                                     <Button
                                         key={p}
                                         variant={p === page ? 'default' : 'outline'}
                                         size="sm"
-                                        className="h-8 w-8 p-0 text-xs"
+                                        className="h-8 w-8 shrink-0 p-0 text-xs"
                                         onClick={() => setPage(p as number)}
                                     >
                                         {p}
@@ -593,10 +773,10 @@ export default function DiscoverPage() {
                                 )
                             ))}
 
-                            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+                            <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
                                 <ChevronRight className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages} onClick={() => setPage(totalPages)}>
+                            <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={page >= totalPages} onClick={() => setPage(totalPages)}>
                                 <ChevronsRight className="h-4 w-4" />
                             </Button>
                             </div>
